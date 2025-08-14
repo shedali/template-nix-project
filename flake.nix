@@ -13,18 +13,18 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         devshell-pkgs = devshell.legacyPackages.${system};
-        
+
         # Build the Bun application
         bunApp = pkgs.stdenv.mkDerivation {
           pname = "bun-nix-example";
           version = "1.0.0";
-          
+
           src = ./.;
-          
+
           nativeBuildInputs = with pkgs; [
             bun
           ];
-          
+
           buildPhase = ''
             # Install dependencies if any
             bun install
@@ -32,7 +32,7 @@
             # Build the application
             bun build index.ts --outdir ./dist --target bun
           '';
-          
+
           installPhase = ''
             mkdir -p $out/bin $out/lib
             
@@ -47,46 +47,49 @@
             
             chmod +x $out/bin/bun-app
           '';
-          
+
           meta = with pkgs.lib; {
             description = "Simple Bun application example";
             license = licenses.mit;
             platforms = platforms.all;
           };
         };
-        
+
         # Alternative: Direct execution without building
         bunScript = pkgs.writeShellScriptBin "bun-script" ''
           exec ${pkgs.bun}/bin/bun ${./index.ts} "$@"
         '';
-        
-      in {
+
+      in
+      {
         packages = {
           default = bunApp;
           app = bunApp;
           script = bunScript;
         };
-        
+
         apps = {
           default = flake-utils.lib.mkApp {
             drv = bunApp;
             name = "bun-app";
           };
-          
+
           script = flake-utils.lib.mkApp {
             drv = bunScript;
             name = "bun-script";
           };
         };
-        
+
         devShells.default = devshell-pkgs.mkShell {
           name = "bun-dev-environment";
-          
+
           packages = with pkgs; [
             bun
             nodejs
+            nixpkgs-fmt
+            statix
           ];
-          
+
           commands = [
             {
               name = "start";
@@ -108,26 +111,52 @@
               help = "Test the server with curl";
               command = "curl http://localhost:3000";
             }
+            {
+              name = "lint-check";
+              help = "Check Nix code formatting and style";
+              command = ''
+                echo "Checking Nix formatting..."
+                nixpkgs-fmt --check *.nix
+                echo "Checking for Nix anti-patterns..."
+                statix check .
+                echo "✅ Lint checks complete"
+              '';
+            }
+            {
+              name = "lint-fix";
+              help = "Auto-fix Nix formatting and style issues";
+              command = ''
+                echo "Fixing Nix formatting..."
+                nixpkgs-fmt *.nix
+                echo "Fixing Nix anti-patterns..."
+                statix fix .
+                echo "✅ Lint fixes applied"
+              '';
+            }
           ];
-          
+
           env = [
             {
               name = "BUN_ENV";
               value = "development";
             }
           ];
-          
+
           motd = ''
             Welcome to the Bun development environment!
             
             Available commands:
-            • start      - Start the Bun application
-            • dev        - Start with watch mode
-            • build      - Build for production
+            • start       - Start the Bun application
+            • dev         - Start with watch mode
+            • build       - Build for production
             • test-server - Test the running server
+            • lint-check  - Check Nix code formatting and style
+            • lint-fix    - Auto-fix Nix formatting and style issues
             
             Run 'menu' to see this again.
           '';
         };
+
+        formatter = pkgs.nixpkgs-fmt;
       });
 }
