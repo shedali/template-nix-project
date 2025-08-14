@@ -25,7 +25,7 @@
         pkgs = nixpkgs.legacyPackages.${system};
         devshell-pkgs = devshell.legacyPackages.${system};
 
-        # Build the Bun application
+        # Build the Bun application  
         bunApp = pkgs.stdenv.mkDerivation {
           pname = "bun-nix-example";
           version = "1.0.0";
@@ -35,13 +35,14 @@
           nativeBuildInputs = with pkgs; [
             bun
           ];
-
+          
           buildPhase = ''
-            # Install dependencies if any
-            bun install
+            # Set HOME for bun cache
+            export HOME=$(mktemp -d)
             
             # Build the application
-            bun build index.ts --outdir ./dist --target bun
+            # The --compile flag creates a single executable with all dependencies bundled
+            bun build index.ts --outdir ./dist --target bun --compile
           '';
 
           installPhase = ''

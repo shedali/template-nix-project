@@ -66,7 +66,21 @@ Go to Settings → Secrets and variables → Actions, add:
 #### 3. Update Application Code
 Replace `index.ts` with your actual application code.
 
-#### 4. Update This README
+#### 4. Handle Dependencies
+When you add npm dependencies:
+```bash
+# Add a dependency
+bun add express
+
+# The lockfile (bun.lockb) is automatically updated
+# Commit both package.json and bun.lockb
+
+# CI will cache dependencies automatically
+```
+
+**Note**: The Nix build uses `bun build --compile` which bundles all dependencies into a single executable, so network access isn't needed during Nix builds.
+
+#### 5. Update This README
 Replace this template documentation with your project's documentation.
 
 ### 📋 Template Customization Checklist
