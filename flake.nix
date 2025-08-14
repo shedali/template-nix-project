@@ -42,21 +42,14 @@
             
             # Build the application
             # The --compile flag creates a single executable with all dependencies bundled
-            bun build index.ts --outdir ./dist --target bun --compile
+            bun build index.ts --compile --outfile ./app
           '';
 
           installPhase = ''
-            mkdir -p $out/bin $out/lib
+            mkdir -p $out/bin
             
-            # Copy the built application
-            cp -r dist/* $out/lib/
-            
-            # Create a wrapper script
-            cat > $out/bin/bun-app <<EOF
-            #!${pkgs.bash}/bin/bash
-            exec ${pkgs.bun}/bin/bun $out/lib/index.js "\$@"
-            EOF
-            
+            # Copy the compiled executable
+            cp ./app $out/bin/bun-app
             chmod +x $out/bin/bun-app
           '';
 
