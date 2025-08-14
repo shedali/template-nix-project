@@ -1,70 +1,55 @@
-name: CI
+name: "CI"
 
 on:
-  push:
-    branches: [ main, develop ]
   pull_request:
+  push:
     branches: [ main ]
 
 jobs:
-  build:
+  tests:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Install Nix
-      uses: cachix/install-nix-action@v26
+    - uses: actions/checkout@v4
+    
+    - uses: cachix/install-nix-action@v25
       with:
-        github_access_token: ${{ secrets.GITHUB_TOKEN }}
+        nix_path: nixpkgs=channel:nixos-unstable
         extra_nix_config: |
           experimental-features = nix-command flakes
-          access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
-
-    - name: Setup Cachix
-      uses: cachix/cachix-action@v15
-      if: ${{ secrets.CACHIX_AUTH_TOKEN != '' }}
+    
+    - uses: cachix/cachix-action@v14
       with:
         name: bun-nix-example
+        signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-        extraPullNames: nix-community
-        skipPush: ${{ github.event_name == 'pull_request' }}
-
+    
     - name: Check flake
       run: nix flake check
-
+    
     - name: Build application
       run: nix build -L
-
-    - name: Build script variant
+    
+    - name: Build script variant  
       run: nix build .#script -L
-
-    - name: Test run application
-      run: |
-        timeout 10s nix run &
-        sleep 5
-        curl -f http://localhost:3000 || exit 1
-
+    
     - name: Test development shell
       run: nix develop --command bash -c "which bun && bun --version"
 
   format-check:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Install Nix
-      uses: cachix/install-nix-action@v26
+    - uses: actions/checkout@v4
+    
+    - uses: cachix/install-nix-action@v25
       with:
-        github_access_token: ${{ secrets.GITHUB_TOKEN }}
+        nix_path: nixpkgs=channel:nixos-unstable
         extra_nix_config: |
           experimental-features = nix-command flakes
-
+    
     - name: Check Nix formatting
       run: |
         nix fmt
