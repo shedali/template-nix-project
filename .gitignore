@@ -2,3 +2,4 @@ dist/index.js
 .direnv
 node_modules
 result
+.envrc
