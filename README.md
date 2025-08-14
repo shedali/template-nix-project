@@ -2,6 +2,89 @@
 
 A modern Nix flake template for Bun applications with automatic binary caching via Cachix.
 
+## 🚀 Using This Template
+
+### Create Your Own Project from This Template
+
+#### Option 1: Use GitHub Template Feature (Recommended)
+1. Click the **"Use this template"** button at the top of this repo
+2. Choose **"Create a new repository"**
+3. Name your new repository
+4. Clone your new repo and follow the setup below
+
+#### Option 2: Using Nix Flakes Directly
+```bash
+# Create a new project using this template
+nix flake new my-project -t github:shedali/template-nix-project
+cd my-project
+```
+
+### ⚙️ Setup Your New Project
+
+After creating your repository from this template, customize it:
+
+#### 1. Update Project Name
+Edit `flake.nix`:
+```nix
+# Change these lines:
+pname = "your-app-name";  # Line 19
+description = "Your app description";  # Line 2
+```
+
+#### 2. Set Up Your Own Binary Cache (Optional but Recommended)
+
+**Create a Cachix account:**
+1. Go to [cachix.org](https://cachix.org) and sign in with GitHub
+2. Create a new binary cache (e.g., `your-cache-name`)
+3. Get your public key from the cache settings
+
+**Update `flake.nix`:**
+```nix
+nixConfig = {
+  substituters = [
+    "https://cache.nixos.org"
+    "https://your-cache-name.cachix.org"  # Replace
+  ];
+  trusted-public-keys = [
+    "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+    "your-cache-name.cachix.org-1:YOUR_PUBLIC_KEY"  # Replace
+  ];
+};
+```
+
+**Update GitHub Actions workflows:**
+Replace `bun-nix-example` with your cache name in:
+- `.github/workflows/ci.yml`
+- `.github/workflows/release.yml`
+- `.github/workflows/cachix-deploy.yml`
+
+**Add GitHub Secrets:**
+Go to Settings → Secrets and variables → Actions, add:
+- `CACHIX_AUTH_TOKEN` - Get from `cachix authtoken` command
+- `CACHIX_SIGNING_KEY` - Get from your cache settings page
+
+#### 3. Update Application Code
+Replace `index.ts` with your actual application code.
+
+#### 4. Update This README
+Replace this template documentation with your project's documentation.
+
+### 📋 Template Customization Checklist
+
+- [ ] Update project name in `flake.nix`
+- [ ] Create Cachix account and cache
+- [ ] Update cache configuration in `flake.nix`  
+- [ ] Update cache name in GitHub workflows
+- [ ] Add GitHub secrets (CACHIX_AUTH_TOKEN, CACHIX_SIGNING_KEY)
+- [ ] Replace `index.ts` with your application
+- [ ] Update this README with your project documentation
+- [ ] Update LICENSE file with your information
+- [ ] Push changes and verify CI passes
+
+---
+
+## Original Template Documentation
+
 ## Quick Start (Zero Config!)
 
 ```bash

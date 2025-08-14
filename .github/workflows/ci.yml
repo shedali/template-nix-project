@@ -23,7 +23,7 @@ jobs:
     
     - uses: cachix/cachix-action@v14
       with:
-        name: bun-nix-example
+        name: shedali
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
     

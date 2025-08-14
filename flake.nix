@@ -169,5 +169,31 @@
         };
 
         formatter = pkgs.nixpkgs-fmt;
-      });
+      }) // {
+    # Template configuration for 'nix flake new'
+    templates = {
+      default = {
+        path = ./.;
+        description = "A Nix flake template for Bun applications with Cachix";
+        welcomeText = ''
+          # Welcome to the Nix Bun Template!
+          
+          You've created a new project from the template.
+          
+          ## Next Steps:
+          
+          1. Update project name in flake.nix (line 19 & 2)
+          2. Set up your own Cachix cache (optional)
+          3. Replace index.ts with your application
+          4. Update README.md
+          
+          Get started:
+            cd into your project directory
+            nix develop
+          
+          See README.md for detailed setup instructions.
+        '';
+      };
+    };
+  };
 }
