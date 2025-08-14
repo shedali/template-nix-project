@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux-x86_64
+          - os: macos-latest
+            platform: darwin-x86_64
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Nix
+      uses: cachix/install-nix-action@v25
+      with:
+        github_access_token: ${{ secrets.GITHUB_TOKEN }}
+        extra_nix_config: |
+          experimental-features = nix-command flakes
+          access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+
+    - name: Setup Cachix
+      uses: cachix/cachix-action@v14
+      with:
+        name: bun-nix-example
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+        extraPullNames: nix-community
+
+    - name: Build application
+      run: nix build -L
+
+    - name: Package release
+      run: |
+        mkdir -p dist
+        cp -r result/* dist/
+        tar -czf bun-nix-example-${{ matrix.platform }}.tar.gz -C dist .
+
+    - name: Upload release artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: bun-nix-example-${{ matrix.platform }}
+        path: bun-nix-example-${{ matrix.platform }}.tar.gz
+
+  create-release:
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          bun-nix-example-linux-x86_64/bun-nix-example-linux-x86_64.tar.gz
+          bun-nix-example-darwin-x86_64/bun-nix-example-darwin-x86_64.tar.gz
+        generate_release_notes: true
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
