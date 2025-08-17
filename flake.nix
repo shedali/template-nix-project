@@ -17,177 +17,298 @@
     flake-utils.url = "github:numtide/flake-utils";
     devshell.url = "github:numtide/devshell";
     devshell.inputs.nixpkgs.follows = "nixpkgs";
+    pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
+    pre-commit-hooks.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, flake-utils, devshell }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        pkgs = nixpkgs.legacyPackages.${system};
-        devshell-pkgs = devshell.legacyPackages.${system};
+  outputs = { self, nixpkgs, flake-utils, devshell, pre-commit-hooks }:
+    flake-utils.lib.eachDefaultSystem
+      (system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+          devshell-pkgs = devshell.legacyPackages.${system};
 
-        # Build the Bun application  
-        bunApp = pkgs.stdenv.mkDerivation {
-          pname = "bun-nix-example";
-          version = "1.0.0";
+          # Pre-commit hooks configuration
+          pre-commit-check = pre-commit-hooks.lib.${system}.run {
+            src = ./.;
+            hooks = {
+              # Nix formatting
+              nixpkgs-fmt.enable = true;
 
-          src = ./.;
-
-          nativeBuildInputs = with pkgs; [
-            bun
-          ];
-          
-          buildPhase = ''
-            # Set HOME for bun cache
-            export HOME=$(mktemp -d)
-            
-            # Build the application
-            # The --compile flag creates a single executable with all dependencies bundled
-            bun build index.ts --compile --outfile ./app
-          '';
-
-          installPhase = ''
-            mkdir -p $out/bin
-            
-            # Copy the compiled executable
-            cp ./app $out/bin/bun-app
-            chmod +x $out/bin/bun-app
-          '';
-
-          meta = with pkgs.lib; {
-            description = "Simple Bun application example";
-            license = licenses.mit;
-            platforms = platforms.all;
-          };
-        };
-
-        # Alternative: Direct execution without building
-        bunScript = pkgs.writeShellScriptBin "bun-script" ''
-          exec ${pkgs.bun}/bin/bun ${./index.ts} "$@"
-        '';
-
-      in
-      {
-        packages = {
-          default = bunApp;
-          app = bunApp;
-          script = bunScript;
-        };
-
-        apps = {
-          default = flake-utils.lib.mkApp {
-            drv = bunApp;
-            name = "bun-app";
+              # TypeScript/JavaScript
+              prettier = {
+                enable = true;
+                types_or = [ "javascript" "jsx" "ts" "tsx" "json" "css" "html" "markdown" ];
+              };
+            };
           };
 
-          script = flake-utils.lib.mkApp {
-            drv = bunScript;
-            name = "bun-script";
+          # Build the React static site
+          reactApp = pkgs.stdenv.mkDerivation {
+            pname = "react-bun-app";
+            version = "1.0.0";
+
+            src = ./.;
+
+            nativeBuildInputs = with pkgs; [
+              bun
+            ];
+
+            buildPhase = ''
+              # Set HOME for bun cache
+              export HOME=$(mktemp -d)
+              
+              echo "Building React app with Bun (standalone version for Nix)..."
+              
+              # Create dist directory
+              mkdir -p dist
+              
+              # Bundle the standalone React app (no external deps needed)
+              bun build standalone.tsx --outdir ./dist --minify --target=browser
+            
+              # Copy HTML file
+              cp index.html ./dist/
+              
+              # Update HTML to use the bundled JS
+              sed -i 's|type="module" src="./index.tsx"|src="./standalone.js"|' ./dist/index.html
+            '';
+
+            installPhase = ''
+              mkdir -p $out/www
+              cp -r dist/* $out/www/
+            
+              # Create a Bun serve script
+              mkdir -p $out/bin
+              cat > $out/bin/serve <<EOF
+              #!${pkgs.bash}/bin/bash
+              echo "Serving static files from $out/www on http://localhost:3000"
+              cd $out/www && ${pkgs.bun}/bin/bunx serve -p 3000
+              EOF
+              chmod +x $out/bin/serve
+            '';
+
+            meta = with pkgs.lib; {
+              description = "React application built with Bun";
+              license = licenses.mit;
+              platforms = platforms.all;
+            };
           };
-        };
 
-        devShells.default = devshell-pkgs.mkShell {
-          name = "bun-dev-environment";
+          # Server-side executable (if you have a server.ts)
+          bunApp = pkgs.stdenv.mkDerivation {
+            pname = "bun-server";
+            version = "1.0.0";
 
-          packages = with pkgs; [
-            bun
-            nodejs
-            nixpkgs-fmt
-            statix
-          ];
+            src = ./.;
 
-          commands = [
-            {
-              name = "start";
-              help = "Start the Bun application";
-              command = "bun run index.ts";
-            }
-            {
-              name = "dev";
-              help = "Start the application with watch mode";
-              command = "bun --watch run index.ts";
-            }
-            {
-              name = "build";
-              help = "Build the application for production";
-              command = "bun build index.ts --outdir ./dist --target bun";
-            }
-            {
-              name = "test-server";
-              help = "Test the server with curl";
-              command = "curl http://localhost:3000";
-            }
-            {
-              name = "lint-check";
-              help = "Check Nix code formatting and style";
-              command = ''
-                echo "Checking Nix formatting..."
-                nixpkgs-fmt --check *.nix
-                echo "Checking for Nix anti-patterns..."
-                statix check .
-                echo "✅ Lint checks complete"
-              '';
-            }
-            {
-              name = "lint-fix";
-              help = "Auto-fix Nix formatting and style issues";
-              command = ''
-                echo "Fixing Nix formatting..."
-                nixpkgs-fmt *.nix
-                echo "Fixing Nix anti-patterns..."
-                statix fix .
-                echo "✅ Lint fixes applied"
-              '';
-            }
-          ];
+            nativeBuildInputs = with pkgs; [
+              bun
+            ];
 
-          env = [
-            {
-              name = "BUN_ENV";
-              value = "development";
-            }
-          ];
-
-          motd = ''
-            Welcome to the Bun development environment!
+            buildPhase = ''
+              export HOME=$(mktemp -d)
             
-            Available commands:
-            • start       - Start the Bun application
-            • dev         - Start with watch mode
-            • build       - Build for production
-            • test-server - Test the running server
-            • lint-check  - Check Nix code formatting and style
-            • lint-fix    - Auto-fix Nix formatting and style issues
+              # Only build if server file exists
+              if [ -f server.ts ]; then
+                bun build server.ts --compile --outfile ./app
+              else
+                # Fallback to simple CLI app
+                echo '#!/usr/bin/env bun' > ./app
+                echo 'console.log("No server.ts found");' >> ./app
+                chmod +x ./app
+              fi
+            '';
+
+            installPhase = ''
+              mkdir -p $out/bin
+              cp ./app $out/bin/bun-app
+              chmod +x $out/bin/bun-app
+            '';
+
+            meta = with pkgs.lib; {
+              description = "Bun server application";
+              license = licenses.mit;
+              platforms = platforms.all;
+            };
+          };
+
+          # Alternative: Direct execution without building
+          bunScript = pkgs.writeShellScriptBin "bun-script" ''
+            exec ${pkgs.bun}/bin/bun ${./index.ts} "$@"
+          '';
+
+        in
+        {
+          packages = {
+            default = reactApp;
+            react = reactApp;
+            server = bunApp;
+            script = bunScript;
+          };
+
+          apps = {
+            default = flake-utils.lib.mkApp {
+              drv = reactApp;
+              name = "serve";
+            };
+
+            server = flake-utils.lib.mkApp {
+              drv = bunApp;
+              name = "bun-app";
+            };
+
+            script = flake-utils.lib.mkApp {
+              drv = bunScript;
+              name = "bun-script";
+            };
+          };
+
+          devShells.default = devshell-pkgs.mkShell {
+            name = "bun-dev-environment";
+
+            packages = with pkgs; [
+              bun
+              nodejs
+              nixpkgs-fmt
+              statix
+              # Pre-commit tools
+              pre-commit
+              # Formatters and linters
+              nodePackages.prettier
+              nodePackages.eslint
+              commitizen
+            ];
+
+            commands = [
+              {
+                name = "install-hooks";
+                help = "Install pre-commit hooks";
+                command = ''
+                  ${pre-commit-check.shellHook}
+                  echo "Pre-commit hooks installed!"
+                '';
+              }
+              {
+                name = "start";
+                help = "Start React development server";
+                command = "bunx --bun vite";
+              }
+              {
+                name = "dev";
+                help = "Start React dev server with hot reload";
+                command = "bunx --bun vite";
+              }
+              {
+                name = "build";
+                help = "Build React app for production";
+                command = "bun build index.tsx --outdir ./dist --minify";
+              }
+              {
+                name = "build-server";
+                help = "Build server executable";
+                command = "bun build server.ts --compile --outfile ./app";
+              }
+              {
+                name = "preview";
+                help = "Preview production build";
+                command = "cd dist && bunx --bun serve -p 3000";
+              }
+              {
+                name = "test-server";
+                help = "Test the server with curl";
+                command = "curl http://localhost:3000";
+              }
+              {
+                name = "lint-check";
+                help = "Check Nix code formatting and style";
+                command = ''
+                  echo "Checking Nix formatting..."
+                  nixpkgs-fmt --check *.nix
+                  echo "Checking for Nix anti-patterns..."
+                  statix check .
+                  echo "✅ Lint checks complete"
+                '';
+              }
+              {
+                name = "lint-fix";
+                help = "Auto-fix Nix formatting and style issues";
+                command = ''
+                  echo "Fixing Nix formatting..."
+                  nixpkgs-fmt *.nix
+                  echo "Fixing Nix anti-patterns..."
+                  statix fix .
+                  echo "✅ Lint fixes applied"
+                '';
+              }
+              {
+                name = "pre-commit-run";
+                help = "Run all pre-commit hooks manually";
+                command = "pre-commit run --all-files";
+              }
+              {
+                name = "pre-commit-install";
+                help = "Install pre-commit hooks (done automatically)";
+                command = "pre-commit install";
+              }
+            ];
+
+            env = [
+              {
+                name = "BUN_ENV";
+                value = "development";
+              }
+            ];
+
+            motd = ''
+              Welcome to the Bun development environment!
+              
+              🪝 Run 'install-hooks' to set up pre-commit hooks (first time only)
             
-            Run 'menu' to see this again.
+              Available commands:
+              • start          - Start React development server
+              • dev            - Start React dev server with hot reload (Vite)
+              • build          - Build React app for production
+              • test-server    - Test the running server
+              • lint-check     - Check Nix code formatting and style
+              • lint-fix       - Auto-fix Nix formatting and style issues
+              • install-hooks  - Install pre-commit hooks
+              • pre-commit-run - Run all pre-commit hooks manually
+            
+              Run 'menu' to see this again.
+            '';
+          };
+
+          formatter = pkgs.nixpkgs-fmt;
+
+          # Export pre-commit checks so they can be run in CI
+          checks = {
+            inherit pre-commit-check;
+          };
+        }) // {
+      # Template configuration for 'nix flake new'
+      templates = {
+        default = {
+          path = ./.;
+          description = "A Nix flake template for Bun applications with Cachix";
+          welcomeText = ''
+            # Welcome to the Nix Bun Template!
+          
+            You've created a new project from the template.
+          
+            ## Next Steps:
+          
+            1. Update project name in flake.nix (line 19 & 2)
+            2. Set up your own Cachix cache (optional)
+            3. Replace index.ts with your application
+            4. Update README.md
+          
+            Get started:
+              cd into your project directory
+              nix develop
+          
+            See README.md for detailed setup instructions.
           '';
         };
-
-        formatter = pkgs.nixpkgs-fmt;
-      }) // {
-    # Template configuration for 'nix flake new'
-    templates = {
-      default = {
-        path = ./.;
-        description = "A Nix flake template for Bun applications with Cachix";
-        welcomeText = ''
-          # Welcome to the Nix Bun Template!
-          
-          You've created a new project from the template.
-          
-          ## Next Steps:
-          
-          1. Update project name in flake.nix (line 19 & 2)
-          2. Set up your own Cachix cache (optional)
-          3. Replace index.ts with your application
-          4. Update README.md
-          
-          Get started:
-            cd into your project directory
-            nix develop
-          
-          See README.md for detailed setup instructions.
-        '';
       };
     };
-  };
 }

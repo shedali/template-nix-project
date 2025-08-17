@@ -7,12 +7,14 @@ A modern Nix flake template for Bun applications with automatic binary caching v
 ### Create Your Own Project from This Template
 
 #### Option 1: Use GitHub Template Feature (Recommended)
+
 1. Click the **"Use this template"** button at the top of this repo
 2. Choose **"Create a new repository"**
 3. Name your new repository
 4. Clone your new repo and follow the setup below
 
 #### Option 2: Using Nix Flakes Directly
+
 ```bash
 # Create a new project using this template
 nix flake new my-project -t github:shedali/template-nix-project
@@ -24,7 +26,9 @@ cd my-project
 After creating your repository from this template, customize it:
 
 #### 1. Update Project Name
+
 Edit `flake.nix`:
+
 ```nix
 # Change these lines:
 pname = "your-app-name";  # Line 19
@@ -34,11 +38,13 @@ description = "Your app description";  # Line 2
 #### 2. Set Up Your Own Binary Cache (Optional but Recommended)
 
 **Create a Cachix account:**
+
 1. Go to [cachix.org](https://cachix.org) and sign in with GitHub
 2. Create a new binary cache (e.g., `your-cache-name`)
 3. Get your public key from the cache settings
 
 **Update `flake.nix`:**
+
 ```nix
 nixConfig = {
   substituters = [
@@ -54,20 +60,25 @@ nixConfig = {
 
 **Update GitHub Actions workflows:**
 Replace `bun-nix-example` with your cache name in:
+
 - `.github/workflows/ci.yml`
 - `.github/workflows/release.yml`
 - `.github/workflows/cachix-deploy.yml`
 
 **Add GitHub Secrets:**
 Go to Settings → Secrets and variables → Actions, add:
+
 - `CACHIX_AUTH_TOKEN` - Get from `cachix authtoken` command
 - `CACHIX_SIGNING_KEY` - Get from your cache settings page
 
 #### 3. Update Application Code
+
 Replace `index.ts` with your actual application code.
 
 #### 4. Handle Dependencies
+
 When you add npm dependencies:
+
 ```bash
 # Add a dependency
 bun add express
@@ -81,13 +92,14 @@ bun add express
 **Note**: The Nix build uses `bun build --compile` which bundles all dependencies into a single executable, so network access isn't needed during Nix builds.
 
 #### 5. Update This README
+
 Replace this template documentation with your project's documentation.
 
 ### 📋 Template Customization Checklist
 
 - [ ] Update project name in `flake.nix`
 - [ ] Create Cachix account and cache
-- [ ] Update cache configuration in `flake.nix`  
+- [ ] Update cache configuration in `flake.nix`
 - [ ] Update cache name in GitHub workflows
 - [ ] Add GitHub secrets (CACHIX_AUTH_TOKEN, CACHIX_SIGNING_KEY)
 - [ ] Replace `index.ts` with your application
@@ -114,8 +126,10 @@ nix develop
 
 - 🚀 **Automatic Binary Caching** - Pre-built binaries download instantly
 - 🛠️ **Development Shell** - Bun, Node.js, and dev tools pre-configured
-- 📦 **Multiple Build Targets** - Compiled and script variants
+- 📦 **Multiple Build Targets** - React SPA and server applications
 - 🔧 **Linting Tools** - Nix formatting and style checking built-in
+- 🪝 **Pre-commit Hooks** - Automatic code quality checks on git commits
+- ⚡ **Hot Reload** - React development with Vite hot reload
 - 🤖 **CI/CD Ready** - GitHub Actions with Cachix integration
 
 ## Usage
@@ -127,33 +141,103 @@ nix develop
 nix develop
 
 # Available commands in dev shell:
-start       # Start the Bun application
-dev         # Start with watch mode
-build       # Build for production
-test-server # Test the running server
-lint-check  # Check Nix code formatting
-lint-fix    # Auto-fix Nix formatting
-menu        # Show this menu again
+start        # Start React development server
+dev          # Start React dev server with hot reload (Vite)
+build        # Build React app for production
+build-server # Build server executable
+preview      # Preview production build
+test-server  # Test the running server
+lint-check   # Check Nix code formatting
+lint-fix     # Auto-fix Nix formatting
+menu         # Show this menu again
 ```
 
 ### Building
 
+#### React Static Site (Default)
+
 ```bash
-# Build the application (downloads from cache if available)
+# Build React app to static files
 nix build
+# or explicitly
+nix build .#react
 
-# Run the built application
-./result/bin/bun-app
+# Serve the built static files
+./result/bin/serve
 
-# Or run directly without building
-nix run
+# The static files are in:
+./result/www/
 ```
 
-### Alternative: Run TypeScript directly
+#### Server Application
 
 ```bash
-# Run without compilation
-nix run .#script
+# Build server executable (if you have server.ts)
+nix build .#server
+
+# Run the server
+./result/bin/bun-app
+```
+
+#### Development Mode
+
+```bash
+# Enter dev shell and start Vite
+nix develop
+dev  # Starts Vite with hot reload
+
+# Or use Bun's built-in server
+bun --hot run index.tsx
+```
+
+### Project Structure
+
+This template now supports both:
+
+1. **React SPA** - Static site generation with React
+2. **Server App** - Backend API or SSR (add `server.ts`)
+
+The build automatically detects which type based on your files.
+
+## Pre-commit Hooks
+
+This template includes automatic pre-commit hooks that run on every git commit to ensure code quality:
+
+### What Hooks Are Enabled
+
+- **Nix**: `nixpkgs-fmt` (formatting) and `statix` (linting)
+- **TypeScript/React**: `prettier` (formatting) and `eslint` (linting)
+- **General**: Check for large files, merge conflicts, YAML syntax, trailing whitespace
+- **Git**: Commitizen for conventional commit messages
+
+### How It Works
+
+1. **Automatic Installation**: Hooks install when you enter `nix develop`
+2. **On Every Commit**: Hooks run automatically before each commit
+3. **Manual Execution**: Run `pre-commit-run` to check all files
+
+### Direnv Integration
+
+With direnv installed:
+
+```bash
+# Automatically loads environment when entering directory
+cd your-project
+# 🚀 Development environment loaded!
+# Pre-commit hooks will be installed automatically
+```
+
+### Configuration Files
+
+- `.pre-commit-config.yaml` - Pre-commit hook configuration
+- `.prettierrc` - Prettier formatting rules
+- `.eslintrc.json` - ESLint rules for TypeScript/React
+
+### Bypassing Hooks (Emergency Only)
+
+```bash
+# Skip hooks for emergency commits
+git commit --no-verify -m "emergency fix"
 ```
 
 ## How Caching Works
@@ -185,13 +269,16 @@ nixConfig = {
 If you get a warning about untrusted substituters, you have two options:
 
 #### Option A: Trust for this project only (Recommended)
+
 ```bash
 # Answer 'y' when prompted:
 nix develop --accept-flake-config
 ```
 
 #### Option B: Trust permanently (Optional)
+
 Add to `/etc/nix/nix.conf` or `~/.config/nix/nix.conf`:
+
 ```
 extra-trusted-substituters = https://shedali.cachix.org
 extra-trusted-public-keys = shedali.cachix.org-1:jnKOvnLAPbsv127ddEfluQ5Wo8h7llUT47CUJCumAvI=
@@ -214,13 +301,16 @@ extra-trusted-public-keys = shedali.cachix.org-1:jnKOvnLAPbsv127ddEfluQ5Wo8h7llU
 ## Troubleshooting
 
 ### "Untrusted substituter" Warning
+
 - **Solution**: Run `nix develop --accept-flake-config` or see Trust Settings above
 
 ### Slow First Build
+
 - **Reason**: Cache miss - CI hasn't built this version yet
 - **Solution**: Wait for CI to complete on main branch, then retry
 
 ### Verify Cache Usage
+
 ```bash
 # Check if cache is configured
 nix show-config | grep substituters
@@ -230,6 +320,7 @@ nix build -L --print-build-logs
 ```
 
 ### Force Rebuild Without Cache
+
 ```bash
 # Bypass cache for testing
 nix build --option substituters ""
@@ -271,6 +362,7 @@ MIT
 ## Credits
 
 Built with:
+
 - [Nix](https://nixos.org) - Reproducible builds and development environments
 - [Bun](https://bun.sh) - Fast JavaScript runtime
 - [Cachix](https://cachix.org) - Binary cache hosting

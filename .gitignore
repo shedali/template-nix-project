@@ -3,3 +3,4 @@ dist/index.js
 node_modules
 result
 .envrc
+.pre-commit-config.yaml
