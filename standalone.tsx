@@ -69,8 +69,21 @@ function render(element: any, container: HTMLElement) {
 
 // Mount the app
 if (typeof document !== 'undefined') {
+  console.log('Script running in browser');
   const container = document.getElementById('root');
+  console.log('Root container found:', container);
   if (container) {
-    render(App(), container);
+    console.log('Rendering app...');
+    try {
+      render(App(), container);
+      console.log('App rendered successfully!');
+    } catch (error) {
+      console.error('Error rendering app:', error);
+      container.innerHTML = '<h1>Error rendering app - check console</h1>';
+    }
+  } else {
+    console.error('No root element found!');
   }
+} else {
+  console.log('Not in browser environment');
 }

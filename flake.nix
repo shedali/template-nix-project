@@ -70,7 +70,7 @@
               cp index.html ./dist/
               
               # Update HTML to use the bundled JS
-              sed -i 's|type="module" src="./index.tsx"|src="./standalone.js"|' ./dist/index.html
+              sed -i 's|type="module" src="/index.tsx"|src="/standalone.js"|' ./dist/index.html
             '';
 
             installPhase = ''
