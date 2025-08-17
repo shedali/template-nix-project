@@ -1,14 +1,25 @@
 name: Deploy to Cachix
 
 on:
-  push:
+  # Only run on main branch after CI passes
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
     branches: [ main ]
+  
+  # Manual trigger
+  workflow_dispatch:
+  
+  # Keep cache fresh
   schedule:
-    # Rebuild weekly to keep cache fresh
-    - cron: '0 2 * * 0'
+    - cron: '0 2 * * 0'  # Weekly on Sunday
 
 jobs:
   cachix-deploy:
+    # Only run if CI succeeded or it's a scheduled/manual run
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -22,21 +33,29 @@ jobs:
       with:
         github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
+    # This job WRITES to cache
     - uses: cachix/cachix-action@v14
       with:
         name: shedali
-        signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
+        signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'  # Write access
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
         extraPullNames: nix-community
 
-    - name: Build and push all outputs
+    - name: Build all outputs
       run: |
-        # Build all packages and push to cache
-        nix build -L
-        nix build .#script -L
+        echo "Building all outputs for ${{ matrix.os }}..."
         
-        # Build development shell dependencies
-        nix develop --command echo "Dev shell built"
+        # Build all packages
+        nix build -L --json | jq -r '.[].outputs | to_entries[].value' | cachix push shedali
+        nix build .#react -L --json | jq -r '.[].outputs | to_entries[].value' | cachix push shedali
+        nix build .#server -L --json | jq -r '.[].outputs | to_entries[].value' | cachix push shedali
+        nix build .#script -L --json | jq -r '.[].outputs | to_entries[].value' | cachix push shedali
         
-        # Push everything to Cachix
-        nix path-info --all | cachix push shedali
+        # Build and cache development shell
+        nix develop --profile dev-profile --command true
+        cachix push shedali dev-profile
+        
+    - name: Push all store paths
+      run: |
+        # Push any additional store paths
+        nix path-info --all | grep -v '.drv$' | cachix push shedali || true

@@ -27,19 +27,20 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-bun-
     
-    - name: Install dependencies
-      run: bun install --frozen-lockfile
+    # Note: We don't install dependencies here since Nix build doesn't use them
     
     - uses: cachix/install-nix-action@v31
       with:
         github_access_token: ${{ secrets.GITHUB_TOKEN }}
     
+    # CI only READS from cache, doesn't write
+    # No signingKey = read-only mode
     - uses: cachix/cachix-action@v14
       with:
         name: shedali
-        signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
         extraPullNames: nix-community
+        # No signingKey here - read only!
     
     - name: Check flake
       run: nix flake check
@@ -50,8 +51,14 @@ jobs:
     - name: Build script variant  
       run: nix build .#script -L
     
+    - name: Build React app
+      run: nix build .#react -L
+    
     - name: Test development shell
       run: nix develop --command bash -c "which bun && bun --version"
+    
+    - name: Run pre-commit checks
+      run: nix develop --command pre-commit-run || true
 
   format-check:
     runs-on: ubuntu-latest
