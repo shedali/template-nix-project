@@ -47,17 +47,14 @@
           reactApp = pkgs.stdenv.mkDerivation {
             pname = "react-bun-app";
             version = "1.0.0";
-
             src = ./.;
-
             nativeBuildInputs = with pkgs; [
               bun
             ];
 
             buildPhase = ''
               # Set HOME for bun cache
-              export HOME=$(mktemp -d)
-              
+              export HOME=$(mktemp -d)              
               echo "Building React app with Bun (standalone version for Nix)..."
               
               # Create dist directory
@@ -98,16 +95,13 @@
           bunApp = pkgs.stdenv.mkDerivation {
             pname = "bun-server";
             version = "1.0.0";
-
             src = ./.;
-
             nativeBuildInputs = with pkgs; [
               bun
             ];
 
             buildPhase = ''
               export HOME=$(mktemp -d)
-            
               # Only build if server file exists
               if [ -f server.ts ]; then
                 bun build server.ts --compile --outfile ./app
