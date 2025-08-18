@@ -30,6 +30,25 @@
               enable = true;
               types_or = [ "html" "javascript" "ts" "tsx" "jsx" "json" "css" "markdown" ];
             };
+            # Secret scanning - fast check to prevent secrets from being committed  
+            detect-secrets = {
+              enable = true;
+              name = "detect-secrets";
+              entry = "${pkgs.writeShellScript "detect-secrets" ''
+                if ${pkgs.gnugrep}/bin/grep -r -i -E "(password|secret|api.?key|auth.?token)" src/ \
+                  --exclude-dir=node_modules \
+                  2>/dev/null | ${pkgs.gnugrep}/bin/grep -v -E "(getElementById|trusted-public-keys|detect-secrets)"; then
+                  echo "❌ Potential secrets detected in source files!"
+                  echo "   Please review and remove any sensitive information before committing."
+                  exit 1
+                else
+                  exit 0
+                fi
+              ''}";
+              language = "system";
+              pass_filenames = false;
+              stages = [ "commit" ];
+            };
           };
         };
         deps = pkgs.stdenv.mkDerivation {
