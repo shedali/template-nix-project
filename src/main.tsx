@@ -11,6 +11,7 @@ function App() {
       <button onClick={() => setCount(count + 1)}>Click me</button>
       <p>Nix template</p>
       <ul>
+        <li>react</li>
         <li>security scanning</li>
         <li>dependabot</li>
         <li>cachix binary cache</li>
