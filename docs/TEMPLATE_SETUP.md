@@ -70,7 +70,7 @@ gh secret set CACHIX_SIGNING_KEY
 - [ ] Replace `README.md` with your project documentation
 - [ ] Update `index.tsx` or `index.ts` with your code
 - [ ] Delete `standalone.tsx` (it's for the template demo)
-- [ ] Delete this `TEMPLATE_SETUP.md` file
+- [ ] Delete this `docs/TEMPLATE_SETUP.md` file
 - [ ] Update LICENSE with your name/organization
 
 ### 5. Choose Your Architecture

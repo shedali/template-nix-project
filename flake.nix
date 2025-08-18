@@ -47,7 +47,19 @@
           reactApp = pkgs.stdenv.mkDerivation {
             pname = "react-bun-app";
             version = "1.0.0";
-            src = ./.;
+            src = pkgs.lib.cleanSourceWith {
+              src = ./.;
+              filter = path: type:
+                let
+                  baseName = baseNameOf path;
+                in
+                # Exclude documentation and CI-only files that don't affect builds
+                  ! (pkgs.lib.hasPrefix (toString ./docs) path ||
+                  pkgs.lib.hasPrefix (toString ./.github) path ||
+                  baseName == "README.md" ||
+                  baseName == ".git" ||
+                  baseName == "result");
+            };
             nativeBuildInputs = with pkgs; [
               bun
             ];
@@ -95,7 +107,19 @@
           bunApp = pkgs.stdenv.mkDerivation {
             pname = "bun-server";
             version = "1.0.0";
-            src = ./.;
+            src = pkgs.lib.cleanSourceWith {
+              src = ./.;
+              filter = path: type:
+                let
+                  baseName = baseNameOf path;
+                in
+                # Exclude documentation and CI-only files that don't affect builds
+                  ! (pkgs.lib.hasPrefix (toString ./docs) path ||
+                  pkgs.lib.hasPrefix (toString ./.github) path ||
+                  baseName == "README.md" ||
+                  baseName == ".git" ||
+                  baseName == "result");
+            };
             nativeBuildInputs = with pkgs; [
               bun
             ];

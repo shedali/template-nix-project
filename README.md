@@ -290,6 +290,11 @@ extra-trusted-public-keys = shedali.cachix.org-1:jnKOvnLAPbsv127ddEfluQ5Wo8h7llU
 .
 ├── flake.nix           # Nix flake configuration with cache settings
 ├── index.ts            # Bun application entry point
+├── docs/               # Documentation files
+│   ├── CLAUDE.md       # Claude development instructions
+│   ├── TEMPLATE_SETUP.md # Template setup guide
+│   ├── CI_OPTIMIZATIONS.md # CI performance optimizations
+│   └── CI_PARALLEL_JOBS.md # Parallel jobs implementation
 ├── .github/
 │   └── workflows/
 │       ├── ci.yml      # CI/CD pipeline with caching
