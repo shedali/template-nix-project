@@ -37,7 +37,14 @@
           version = "1.0.0";
           src = ./.;
           nativeBuildInputs = [ pkgs.bun ];
-          installPhase = "mkdir -p $out/www && cp index.html $out/www/";
+          buildPhase = ''
+            bun build src/main.tsx --outdir ./dist --target browser
+          '';
+          installPhase = ''
+            mkdir -p $out/www
+            cp -r dist/* $out/www/
+            cp public/index.html $out/www/
+          '';
         };
       in
       {
@@ -50,7 +57,7 @@
           devshell.startup.pre-commit-hooks.text = pre-commit-check.shellHook;
           commands = [
             { name = "dev"; help = "Start dev server"; command = "bunx serve . -p 3000"; }
-            { name = "format"; help = "Format files"; command = "nixpkgs-fmt flake.nix && prettier --write index.html"; }
+            { name = "format"; help = "Format files"; command = "nixpkgs-fmt flake.nix && prettier --write 'src/**/*.{ts,tsx}' 'public/**/*.html'"; }
           ];
           motd = "🚀 Bun + React + Nix\nCommands: dev, format, menu";
         };
