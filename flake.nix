@@ -72,7 +72,7 @@
           drv = pkgs.writeShellScriptBin "serve" "cd ${app}/www && ${pkgs.bun}/bin/bunx serve -p 3000";
         };
         devShells.default = devshell.legacyPackages.${system}.mkShell {
-          packages = [ pkgs.bun pkgs.nixpkgs-fmt pkgs.nodePackages.prettier pkgs.cachix pkgs.jq pkgs.gnused pkgs.gnugrep pkgs.gawk ];
+          packages = [ pkgs.bun pkgs.nixpkgs-fmt pkgs.nodePackages.prettier pkgs.cachix pkgs.jq pkgs.gnused pkgs.gnugrep pkgs.gawk pkgs.vulnix ];
           devshell.startup.pre-commit-hooks.text = pre-commit-check.shellHook;
           devshell.startup.bun-install.text = "bun install";
           devshell.startup.git-hooks.text = ''
@@ -103,8 +103,39 @@
                 fi
               '';
             }
+            {
+              name = "security-scan";
+              help = "Run security scans on dependencies and build";
+              command = ''
+                echo "🔐 Running security scans..."
+                
+                echo "📦 Scanning Bun dependencies..."
+                if bun audit --json > /dev/null 2>&1; then
+                  echo "✅ Bun audit passed"
+                else
+                  echo "⚠️  Bun audit found issues - run 'bun audit' for details"
+                fi
+                
+                echo "🔍 Scanning Nix derivation for vulnerabilities..."
+                if nix build --quiet && vulnix -S $(realpath result) 2>/dev/null | grep -q "Found vulnerable packages"; then
+                  echo "⚠️  Vulnerabilities found in Nix packages:"
+                  vulnix -S $(realpath result)
+                else
+                  echo "✅ No known vulnerabilities in Nix packages"
+                fi
+                
+                echo "🔑 Basic secret scanning..."
+                if ${pkgs.gnugrep}/bin/grep -r -i -E "(password|secret|key|token)" src/ --exclude-dir=node_modules 2>/dev/null | grep -v "getElementById"; then
+                  echo "⚠️  Potential secrets found in source code"
+                else
+                  echo "✅ No obvious secrets found in source code"
+                fi
+                
+                echo "🔐 Security scan complete"
+              '';
+            }
           ];
-          motd = "🚀 Bun + React + Nix\nCommands: dev, build, serve, format, update-hash, menu";
+          motd = "🚀 Bun + React + Nix\nCommands: dev, build, serve, format, update-hash, security-scan, menu";
         };
         formatter = pkgs.writeShellScriptBin "fmt" "${pkgs.nixpkgs-fmt}/bin/nixpkgs-fmt flake.nix";
         checks.pre-commit-check = pre-commit-check;

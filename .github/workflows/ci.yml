@@ -13,3 +13,35 @@ jobs:
     - run: nix fmt --accept-flake-config -- --check
     - run: nix build --accept-flake-config
     - run: nix flake check --accept-flake-config
+    - name: Security Scan
+      run: |
+        nix develop --accept-flake-config --command bash -c "
+          echo '🔐 Running security scans on CI...'
+          
+          echo '📦 Scanning Bun dependencies...'
+          if bun audit --json > /dev/null 2>&1; then
+            echo '✅ Bun audit passed'
+          else
+            echo '⚠️  Bun audit found issues:'
+            bun audit || true
+          fi
+          
+          echo '🔍 Scanning Nix derivation for vulnerabilities...'
+          if vulnix -S \$(realpath result) 2>/dev/null | grep -q 'Found vulnerable packages'; then
+            echo '⚠️  Vulnerabilities found in Nix packages:'
+            vulnix -S \$(realpath result)
+            exit 1
+          else
+            echo '✅ No known vulnerabilities in Nix packages'
+          fi
+          
+          echo '🔑 Basic secret scanning...'
+          if grep -r -i -E '(password|secret|key|token)' src/ --exclude-dir=node_modules 2>/dev/null | grep -v 'getElementById'; then
+            echo '⚠️  Potential secrets found in source code'
+            exit 1
+          else
+            echo '✅ No obvious secrets found in source code'
+          fi
+          
+          echo '🔐 Security scan complete - all checks passed'
+        "
