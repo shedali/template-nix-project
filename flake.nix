@@ -1,6 +1,18 @@
 {
   description = "A simple Bun + React application";
 
+  # Binary cache configuration for fast builds
+  nixConfig = {
+    substituters = [
+      "https://cache.nixos.org"
+      "https://shedali.cachix.org"
+    ];
+    trusted-public-keys = [
+      "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+      "shedali.cachix.org-1:jnKOvnLAPbsv127ddEfluQ5Wo8h7llUT47CUJCumAvI="
+    ];
+  };
+
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";

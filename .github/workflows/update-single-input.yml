@@ -1,0 +1,93 @@
+name: Update Single Flake Input
+
+on:
+  workflow_dispatch:
+    inputs:
+      input_name:
+        description: 'Flake input to update (e.g., nixpkgs, devshell)'
+        required: true
+        type: choice
+        options:
+          - nixpkgs
+          - flake-utils
+          - devshell
+          - pre-commit-hooks
+          - all
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Nix
+      uses: DeterminateSystems/nix-installer-action@v4
+      with:
+        extra-conf: |
+          substituters = https://cache.nixos.org https://shedali.cachix.org
+          trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= shedali.cachix.org-1:jnKOvnLAPbsv127ddEfluQ5Wo8h7llUT47CUJCumAvI=
+    
+    - name: Update flake input
+      id: update
+      run: |
+        # Store current state
+        cp flake.lock flake.lock.old
+        
+        # Update the specified input
+        if [ "${{ inputs.input_name }}" = "all" ]; then
+          echo "Updating all inputs..."
+          nix flake update
+        else
+          echo "Updating ${{ inputs.input_name }}..."
+          nix flake lock --update-input ${{ inputs.input_name }}
+        fi
+        
+        # Check if there are changes
+        if diff -q flake.lock flake.lock.old > /dev/null; then
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+          echo "No updates available for ${{ inputs.input_name }}"
+        else
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+          
+          # Get version info
+          if [ "${{ inputs.input_name }}" != "all" ]; then
+            OLD_REV=$(jq -r '.nodes."${{ inputs.input_name }}".locked.rev // "N/A"' flake.lock.old)
+            NEW_REV=$(jq -r '.nodes."${{ inputs.input_name }}".locked.rev // "N/A"' flake.lock)
+            echo "Updated ${{ inputs.input_name }}: ${OLD_REV:0:7} → ${NEW_REV:0:7}"
+          fi
+        fi
+    
+    - name: Test build with update
+      if: steps.update.outputs.has_changes == 'true'
+      run: |
+        nix build -L
+        nix flake check -L
+    
+    - name: Create Pull Request
+      if: steps.update.outputs.has_changes == 'true'
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: |
+          chore(deps): update ${{ inputs.input_name }}
+          
+          Manual dependency update triggered via workflow
+        branch: flake-update/${{ inputs.input_name }}
+        delete-branch: true
+        title: "chore(deps): update ${{ inputs.input_name }}"
+        body: |
+          ## 📦 Manual Dependency Update
+          
+          Updated `${{ inputs.input_name }}` to the latest version.
+          
+          ### Testing
+          - ✅ Build passes
+          - ✅ Flake checks pass
+          
+          🤖 Generated via manual workflow trigger
+        labels: |
+          dependencies
+          manual-update
