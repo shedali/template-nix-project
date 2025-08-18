@@ -21,7 +21,7 @@ jobs:
       with:
         name: shedali
         skipPush: true
-    - run: nix build && cp -r result/www dist
+    - run: nix build --accept-flake-config && cp -r result/www dist
     - uses: actions/configure-pages@v4
     - uses: actions/upload-pages-artifact@v3
       with:

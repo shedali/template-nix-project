@@ -87,7 +87,7 @@
                 echo "Updating FOD hash..."
                 sed -i 's/outputHash = "sha256-.*";/outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";/' flake.nix
                 echo "Building to get new hash..."
-                hash=$(nix build 2>&1 | grep "got:" | awk '{print $2}' || echo "")
+                hash=$(nix build --accept-flake-config 2>&1 | grep "got:" | awk '{print $2}' || echo "")
                 if [ -n "$hash" ]; then
                   sed -i "s/sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=/$hash/" flake.nix
                   echo "Updated hash to: $hash"
