@@ -38,12 +38,13 @@
           src = ./.;
           nativeBuildInputs = [ pkgs.bun ];
           buildPhase = ''
+            bun install --no-save
             bun build src/main.tsx --outdir ./dist --target browser
           '';
           installPhase = ''
             mkdir -p $out/www
             cp -r dist/* $out/www/
-            cp public/index.html $out/www/
+            cp build.html $out/www/index.html
           '';
         };
       in
@@ -58,7 +59,7 @@
           devshell.startup.bun-install.text = "bun install";
           commands = [
             { name = "dev"; help = "Start Bun dev server"; command = "bunx serve . -p 3000"; }
-            { name = "build"; help = "Build static output"; command = "bun build src/main.tsx --outdir ./dist --target browser && cp index.html ./dist/"; }
+            { name = "build"; help = "Build static output"; command = "bun build src/main.tsx --outdir ./dist --target browser && cp build.html ./dist/index.html"; }
             { name = "serve"; help = "Serve built output"; command = "bunx serve ./dist -p 3000"; }
             { name = "format"; help = "Format files"; command = "nixpkgs-fmt flake.nix && prettier --write 'src/**/*.{ts,tsx}'"; }
           ];
