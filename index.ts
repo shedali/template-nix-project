@@ -13,3 +13,4 @@ console.log(`Bun version: ${Bun.version}`);
 // });
 
 console.log('Ready for MobX integration!');
+// Test comment
