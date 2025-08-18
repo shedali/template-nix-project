@@ -72,7 +72,7 @@
           drv = pkgs.writeShellScriptBin "serve" "cd ${app}/www && ${pkgs.bun}/bin/bunx serve -p 3000";
         };
         devShells.default = devshell.legacyPackages.${system}.mkShell {
-          packages = [ pkgs.bun pkgs.nixpkgs-fmt pkgs.nodePackages.prettier pkgs.cachix pkgs.jq ];
+          packages = [ pkgs.bun pkgs.nixpkgs-fmt pkgs.nodePackages.prettier pkgs.cachix pkgs.jq pkgs.gnused pkgs.gnugrep pkgs.gawk ];
           devshell.startup.pre-commit-hooks.text = pre-commit-check.shellHook;
           devshell.startup.bun-install.text = "bun install";
           devshell.startup.git-hooks.text = ''
@@ -92,11 +92,11 @@
               help = "Update FOD hash for dependencies";
               command = ''
                 echo "Updating FOD hash..."
-                sed -i 's/outputHash = "sha256-.*";/outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";/' flake.nix
+                ${pkgs.gnused}/bin/sed -i 's|outputHash = "sha256-eX+2TYc2uI88XLY6Azuv+SxWxROHjD/ilZXIvVB9Loc=";|' flake.nix
                 echo "Building to get new hash..."
-                hash=$(nix build --accept-flake-config 2>&1 | grep "got:" | awk '{print $2}' || echo "")
+                hash=$(nix build --accept-flake-config 2>&1 | ${pkgs.gnugrep}/bin/grep "got:" | ${pkgs.gawk}/bin/awk '{print $2}' || echo "")
                 if [ -n "$hash" ]; then
-                  sed -i "s/sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=/$hash/" flake.nix
+                  ${pkgs.gnused}/bin/sed -i "s|sha256-eX+2TYc2uI88XLY6Azuv+SxWxROHjD/ilZXIvVB9Loc=|$hash|" flake.nix
                   echo "Updated hash to: $hash"
                 else
                   echo "Failed to get new hash - build may have succeeded with old hash"
