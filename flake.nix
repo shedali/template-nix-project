@@ -32,13 +32,31 @@
             };
           };
         };
+        deps = pkgs.stdenv.mkDerivation {
+          pname = "bun-deps";
+          version = "1.0.0";
+          src = ./.;
+          nativeBuildInputs = [ pkgs.bun ];
+          buildPhase = ''
+            export BUN_INSTALL_CACHE_DIR=$TMPDIR/bun-cache
+            bun install --no-save --frozen-lockfile
+          '';
+          installPhase = ''
+            mkdir -p $out
+            cp -r node_modules $out/
+            cp bun.lockb $out/ 2>/dev/null || true
+          '';
+          outputHashMode = "recursive";
+          outputHashAlgo = "sha256";
+          outputHash = "sha256-eX+2TYc2uI88XLY6Azuv+SxWxROHjD/ilZXIvVB9Loc=";
+        };
         app = pkgs.stdenv.mkDerivation {
           pname = "bun-react-app";
           version = "1.0.0";
           src = ./.;
           nativeBuildInputs = [ pkgs.bun ];
           buildPhase = ''
-            bun install --no-save
+            ln -s ${deps}/node_modules ./node_modules
             bun build src/main.tsx --outdir ./dist --target browser
           '';
           installPhase = ''
@@ -62,8 +80,24 @@
             { name = "build"; help = "Build static output"; command = "bun build src/main.tsx --outdir ./dist --target browser && cp build.html ./dist/index.html"; }
             { name = "serve"; help = "Serve built output"; command = "bunx serve ./dist -p 3000"; }
             { name = "format"; help = "Format files"; command = "nixpkgs-fmt flake.nix && prettier --write 'src/**/*.{ts,tsx}'"; }
+            {
+              name = "update-hash";
+              help = "Update FOD hash for dependencies";
+              command = ''
+                echo "Updating FOD hash..."
+                sed -i 's/outputHash = "sha256-.*";/outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";/' flake.nix
+                echo "Building to get new hash..."
+                hash=$(nix build 2>&1 | grep "got:" | awk '{print $2}' || echo "")
+                if [ -n "$hash" ]; then
+                  sed -i "s/sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=/$hash/" flake.nix
+                  echo "Updated hash to: $hash"
+                else
+                  echo "Failed to get new hash - build may have succeeded with old hash"
+                fi
+              '';
+            }
           ];
-          motd = "🚀 Bun + React + Nix\nCommands: dev, build, serve, format, menu";
+          motd = "🚀 Bun + React + Nix\nCommands: dev, build, serve, format, update-hash, menu";
         };
         formatter = pkgs.writeShellScriptBin "fmt" "${pkgs.nixpkgs-fmt}/bin/nixpkgs-fmt flake.nix";
         checks.pre-commit-check = pre-commit-check;
