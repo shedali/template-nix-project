@@ -59,17 +59,34 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: DeterminateSystems/nix-installer-action@v4
-    - uses: DeterminateSystems/magic-nix-cache-action@v2
-    - name: Cache Nix store
+      with:
+        extra-conf: |
+          extra-substituters = https://cache.nixos.org https://shedali.cachix.org
+          extra-trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= shedali.cachix.org-1:jnKOvnLAPbsv127ddEfluQ5Wo8h7llUT47CUJCumAvI=
+          max-jobs = auto
+          cores = 0
+    - name: Cache Nix store paths
       uses: actions/cache@v4
       with:
-        path: /nix
-        key: nix-store-${{ runner.os }}-${{ hashFiles('flake.lock') }}
-        restore-keys: nix-store-${{ runner.os }}-
+        path: |
+          ~/.cache/nix
+          /nix/var/nix/profiles
+          /nix/var/nix/gcroots
+        key: nix-${{ runner.os }}-${{ hashFiles('flake.lock', '**/*.nix') }}
+        restore-keys: |
+          nix-${{ runner.os }}-${{ hashFiles('flake.lock') }}
+          nix-${{ runner.os }}-
     - uses: cachix/cachix-action@v14
       with:
         name: shedali
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+    
+    # Pre-populate common dependencies
+    - name: Pre-populate Nix store
+      run: |
+        echo "Pre-building common dependencies..."
+        nix build nixpkgs#hello --no-link  # Quick test
+        nix develop --command echo "Dev shell ready"
     
     # All builds and tests in sequence (but same job)
     - name: Check formatting
@@ -106,13 +123,23 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: DeterminateSystems/nix-installer-action@v4
-    - uses: DeterminateSystems/magic-nix-cache-action@v2
-    - name: Cache Nix store
+      with:
+        extra-conf: |
+          extra-substituters = https://cache.nixos.org https://shedali.cachix.org
+          extra-trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= shedali.cachix.org-1:jnKOvnLAPbsv127ddEfluQ5Wo8h7llUT47CUJCumAvI=
+          max-jobs = auto
+          cores = 0
+    - name: Cache Nix store paths
       uses: actions/cache@v4
       with:
-        path: /nix
-        key: nix-store-${{ runner.os }}-${{ hashFiles('flake.lock') }}
-        restore-keys: nix-store-${{ runner.os }}-
+        path: |
+          ~/.cache/nix
+          /nix/var/nix/profiles
+          /nix/var/nix/gcroots
+        key: nix-${{ runner.os }}-${{ hashFiles('flake.lock', '**/*.nix') }}
+        restore-keys: |
+          nix-${{ runner.os }}-${{ hashFiles('flake.lock') }}
+          nix-${{ runner.os }}-
     - uses: cachix/cachix-action@v14
       with:
         name: shedali

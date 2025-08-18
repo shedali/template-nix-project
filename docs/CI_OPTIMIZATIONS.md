@@ -2,11 +2,12 @@
 
 ## Changes Made
 
-### ✅ Step 1: Better Nix Installer
+### ✅ Step 1: Better Nix Installer & Direct Cache Config
 
-- Replaced `cachix/install-nix-action` with `DeterminateSystems/nix-installer-action`
-- Added `DeterminateSystems/magic-nix-cache-action` for better caching
-- **Expected improvement**: 30s faster Nix installation
+- Replaced `cachix/install-nix-action` with `DeterminateSystems/nix-installer-action@v4`
+- Removed unreliable `magic-nix-cache-action`
+- Added direct Cachix configuration via `extra-conf`
+- **Expected improvement**: 30s faster + reliable caching
 
 ### ✅ Step 3: Parallel Builds
 

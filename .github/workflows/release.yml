@@ -22,9 +22,13 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - uses: cachix/install-nix-action@v31
+    - uses: DeterminateSystems/nix-installer-action@v4
       with:
-        github_access_token: ${{ secrets.GITHUB_TOKEN }}
+        extra-conf: |
+          extra-substituters = https://cache.nixos.org https://shedali.cachix.org
+          extra-trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= shedali.cachix.org-1:jnKOvnLAPbsv127ddEfluQ5Wo8h7llUT47CUJCumAvI=
+          max-jobs = auto
+          cores = 0
 
     - uses: cachix/cachix-action@v14
       with:
