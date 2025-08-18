@@ -90,8 +90,8 @@
             # Copy HTML file
             cp index.html ./dist/
 
-            # Update HTML to use the bundled JS
-            sed -i 's|type="module" src="/index.tsx"|src="/standalone.js"|' ./dist/index.html
+            # Update HTML to use the bundled JS with relative path (works with GitHub Pages)
+            sed -i 's|type="module" src="/index.tsx"|src="./standalone.js"|' ./dist/index.html
           '';
 
           installPhase = ''
@@ -147,12 +147,8 @@
             nodejs
             nixpkgs-fmt
             statix
-            # Pre-commit tools
-            pre-commit
-            # Formatters and linters
+            # Formatters and linters (pre-commit managed via hooks)
             nodePackages.prettier
-            nodePackages.eslint
-            commitizen
           ];
 
           commands = [
@@ -212,14 +208,28 @@
               '';
             }
             {
-              name = "pre-commit-run";
-              help = "Run all pre-commit hooks manually";
-              command = "pre-commit run --all-files";
-            }
-            {
-              name = "pre-commit-install";
-              help = "Install pre-commit hooks (done automatically)";
-              command = "pre-commit install";
+              name = "fix-cache-warnings";
+              help = "Show commands to fix Cachix warnings";
+              command = ''
+                echo "🔧 To fix Cachix warnings, run these commands:"
+                echo ""
+                echo "1️⃣ Add yourself to trusted users:"
+                echo "   sudo mkdir -p /etc/nix"
+                echo "   echo 'trusted-users = root $USER' | sudo tee -a /etc/nix/nix.conf"
+                echo ""
+                echo "2️⃣ Restart the Nix daemon:"
+                echo "   sudo launchctl unload /Library/LaunchDaemons/org.nixos.nix-daemon.plist 2>/dev/null || true"
+                echo "   sudo launchctl load /Library/LaunchDaemons/org.nixos.nix-daemon.plist"
+                echo ""
+                echo "3️⃣ Start a new shell:"
+                echo "   exit"
+                echo "   nix develop"
+                echo ""
+                echo "💡 Alternative: Use --accept-flake-config flag:"
+                echo "   nix develop --accept-flake-config"
+                echo ""
+                echo "⚠️  Note: The warnings don't affect functionality, they're just security notices."
+              '';
             }
           ];
 
@@ -243,7 +253,7 @@
             • lint-check     - Check Nix code formatting and style
             • lint-fix       - Auto-fix Nix formatting and style issues
             • install-hooks  - Install pre-commit hooks
-            • pre-commit-run - Run all pre-commit hooks manually
+            • fix-cache-warnings - Fix Cachix warnings (requires sudo)
 
             Run 'menu' to see this again.
           '';
