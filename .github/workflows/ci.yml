@@ -5,84 +5,109 @@ on:
   push:
     branches: [ main ]
 
+# Cancel in-progress runs when new commit pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  tests:
+  # Each build is a separate job - runs in parallel
+  build-react:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    
     steps:
     - uses: actions/checkout@v4
-    
-    # Step 1: Use faster Nix installer
     - uses: DeterminateSystems/nix-installer-action@v4
-    
     - uses: DeterminateSystems/magic-nix-cache-action@v2
-    
-    # Step 4: Cache Nix store between runs
-    - name: Cache Nix store
-      uses: actions/cache@v4
-      with:
-        path: /nix
-        key: ${{ runner.os }}-nix-${{ hashFiles('flake.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-nix-
-    
-    # CI only READS from cache, doesn't write
-    # No signingKey = read-only mode
     - uses: cachix/cachix-action@v14
       with:
         name: shedali
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-        extraPullNames: nix-community
-        # No signingKey here - read only!
-    
-    # Step 3: Run builds in parallel
-    - name: Run all checks and builds in parallel
+    - name: Build React App
+      run: nix build .#react -L
+    - name: Test output exists
+      run: test -d ./result/www
+
+  build-server:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: DeterminateSystems/nix-installer-action@v4
+    - uses: DeterminateSystems/magic-nix-cache-action@v2
+    - uses: cachix/cachix-action@v14
+      with:
+        name: shedali
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+    - name: Build Server
+      run: nix build .#server -L
+    - name: Test output exists
+      run: test -f ./result/bin/bun-app
+
+  build-script:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: DeterminateSystems/nix-installer-action@v4
+    - uses: DeterminateSystems/magic-nix-cache-action@v2
+    - uses: cachix/cachix-action@v14
+      with:
+        name: shedali
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+    - name: Build Script
+      run: nix build .#script -L
+
+  flake-check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: DeterminateSystems/nix-installer-action@v4
+    - uses: DeterminateSystems/magic-nix-cache-action@v2
+    - name: Check flake
+      run: nix flake check
+
+  devshell-test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: DeterminateSystems/nix-installer-action@v4
+    - uses: DeterminateSystems/magic-nix-cache-action@v2
+    - name: Test dev shell
       run: |
-        echo "Starting parallel builds..."
-        
-        # Run flake check in background
-        nix flake check &
-        CHECK_PID=$!
-        
-        # Build React app (default is same as react, so skip duplicate)
-        nix build .#react -L &
-        REACT_PID=$!
-        
-        # Build server
-        nix build .#server -L &
-        SERVER_PID=$!
-        
-        # Build script variant
-        nix build .#script -L &
-        SCRIPT_PID=$!
-        
-        # Wait for all background jobs to complete
-        wait $CHECK_PID
-        echo "✓ Flake check completed"
-        
-        wait $REACT_PID
-        echo "✓ React build completed"
-        
-        wait $SERVER_PID
-        echo "✓ Server build completed"
-        
-        wait $SCRIPT_PID
-        echo "✓ Script build completed"
-    
-    - name: Test development shell
-      run: nix develop --command echo "Dev shell works"
+        nix develop --command bun --version
+        nix develop --command which nixpkgs-fmt
 
   format-check:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
-    # Use faster Nix installer here too
     - uses: DeterminateSystems/nix-installer-action@v4
-    
-    - name: Check Nix formatting
-      run: |
-        nix fmt -- --check || (echo "Nix files need formatting. Run 'nix fmt'" && exit 1)
+    - name: Check formatting
+      run: nix fmt -- --check
+
+  # Single status check for branch protection
+  all-checks:
+    if: always()
+    needs: 
+      - build-react
+      - build-server
+      - build-script
+      - flake-check
+      - devshell-test
+      - format-check
+    runs-on: ubuntu-latest
+    steps:
+    - name: Verify all checks passed
+      uses: re-actors/alls-green@release/v1
+      with:
+        jobs: ${{ toJSON(needs) }}
