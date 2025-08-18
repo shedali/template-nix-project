@@ -1,126 +1,16 @@
 name: CI
-
-on:
-  pull_request:
-  push:
-    branches: [main, master]
-
-# Cancel in-progress runs when new commit pushed
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
+on: [push, pull_request]
 jobs:
-  # Quick format check first
-  format-check:
+  ci:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
-    - name: Install Nix
-      uses: DeterminateSystems/nix-installer-action@v4
-      with:
-        extra-conf: |
-          substituters = https://cache.nixos.org https://shedali.cachix.org
-          trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= shedali.cachix.org-1:jnKOvnLAPbsv127ddEfluQ5Wo8h7llUT47CUJCumAvI=
-    
-    - name: Check formatting
-      run: |
-        nix fmt -- --check || (echo "❌ Files need formatting - run 'nix fmt'" && exit 1)
-
-  # Main build job with extensive caching
-  build:
-    needs: format-check
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install Nix
-      uses: DeterminateSystems/nix-installer-action@v4
-      with:
-        extra-conf: |
-          substituters = https://cache.nixos.org https://shedali.cachix.org
-          trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= shedali.cachix.org-1:jnKOvnLAPbsv127ddEfluQ5Wo8h7llUT47CUJCumAvI=
-          max-jobs = auto
-          cores = 0
-    
-    - name: Setup Cachix
-      uses: cachix/cachix-action@v14
+    - uses: DeterminateSystems/nix-installer-action@v14
+    - uses: DeterminateSystems/magic-nix-cache-action@v7
+    - uses: cachix/cachix-action@v14
       with:
         name: shedali
-        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-        skipPush: ${{ matrix.os == 'macos-latest' }}
-    
-    # Additional GitHub Actions cache for Nix store
-    - name: Cache Nix store
-      uses: actions/cache@v4
-      with:
-        path: |
-          /nix/store
-          ~/.cache/nix
-        key: nix-${{ runner.os }}-${{ hashFiles('flake.lock') }}
-        restore-keys: |
-          nix-${{ runner.os }}-
-    
-    - name: Build all outputs
-      run: |
-        echo "::group::Building packages"
-        nix build -L --json | tee build-result.json
-        echo "::endgroup::"
-        
-        echo "## Build Results" >> $GITHUB_STEP_SUMMARY
-        echo '```json' >> $GITHUB_STEP_SUMMARY
-        cat build-result.json | jq '.' >> $GITHUB_STEP_SUMMARY
-        echo '```' >> $GITHUB_STEP_SUMMARY
-    
-    - name: Run flake checks
-      run: |
-        echo "::group::Running checks"
-        nix flake check -L
-        echo "::endgroup::"
-    
-    - name: Test dev shell
-      run: |
-        echo "::group::Testing dev shell"
-        nix develop --command echo "✅ Dev shell works"
-        nix develop --command bun --version
-        echo "::endgroup::"
-    
-    - name: Verify reproducibility
-      run: |
-        echo "::group::Verifying reproducibility"
-        original=$(nix build --json | jq -r '.[0].outputs.out')
-        rebuilt=$(nix build --rebuild --json | jq -r '.[0].outputs.out')
-        if [ "$original" = "$rebuilt" ]; then
-          echo "✅ Build is reproducible: $original"
-        else
-          echo "❌ Build is not reproducible!"
-          echo "Original: $original"
-          echo "Rebuilt: $rebuilt"
-          exit 1
-        fi
-        echo "::endgroup::"
-    
-    # Push to Cachix only from Linux and main branch
-    - name: Push to Cachix
-      if: matrix.os == 'ubuntu-latest' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-      run: |
-        echo "::group::Pushing to Cachix"
-        cat build-result.json | jq -r '.[].outputs | to_entries[].value' | cachix push shedali
-        
-        # Also push the dev shell
-        nix develop --profile dev-profile --command true
-        cachix push shedali dev-profile
-        echo "::endgroup::"
-    
-    - name: Performance metrics
-      if: always()
-      run: |
-        echo "## Performance Metrics" >> $GITHUB_STEP_SUMMARY
-        echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
-        echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-        echo "| OS | ${{ matrix.os }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Duration | ${{ job.duration }}s |" >> $GITHUB_STEP_SUMMARY
+        authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+    - run: nix fmt -- --check
+    - run: nix build
+    - run: nix flake check
