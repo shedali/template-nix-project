@@ -116,7 +116,7 @@
             
                 # Format check - should block push if not formatted
                 # (pre-commit should have auto-formatted, so this catches bypasses)
-                if ! nix fmt -- --check 2>/dev/null; then
+                if ! timeout 10 nix fmt -- --check 2>/dev/null; then
                   echo "❌ Files are not formatted correctly!"
                   echo "   This should have been auto-formatted by pre-commit."
                   echo "   Run 'nix fmt' to format, then commit the changes."
@@ -178,6 +178,9 @@
           inherit pre-commit-check;
         };
 
-        formatter = pkgs.nixpkgs-fmt;
+        formatter = pkgs.writeShellScriptBin "formatter" ''
+          # Only format the flake.nix file, not symlinks or other directories
+          ${pkgs.nixpkgs-fmt}/bin/nixpkgs-fmt flake.nix "$@"
+        '';
       });
 }
