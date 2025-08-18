@@ -28,6 +28,23 @@
           pkgs = nixpkgs.legacyPackages.${system};
           devshell-pkgs = devshell.legacyPackages.${system};
 
+          # Shared source filtering logic
+          sourceFilter = pkgs.lib.cleanSourceWith {
+            src = ./.;
+            filter = path: type:
+              let
+                baseName = baseNameOf path;
+              in
+              # Exclude documentation and non-essential CI files
+                ! (pkgs.lib.hasPrefix (toString ./docs) path ||
+                pkgs.lib.hasPrefix (toString ./.github/workflows) path ||
+                baseName == "README.md" ||
+                baseName == ".git" ||
+                baseName == "result" ||
+                baseName == ".gitignore" ||
+                pkgs.lib.hasSuffix ".md" baseName);
+          };
+
           # Pre-commit hooks configuration
           pre-commit-check = pre-commit-hooks.lib.${system}.run {
             src = ./.;
@@ -47,19 +64,7 @@
           reactApp = pkgs.stdenv.mkDerivation {
             pname = "react-bun-app";
             version = "1.0.0";
-            src = pkgs.lib.cleanSourceWith {
-              src = ./.;
-              filter = path: type:
-                let
-                  baseName = baseNameOf path;
-                in
-                # Exclude documentation and CI-only files that don't affect builds
-                  ! (pkgs.lib.hasPrefix (toString ./docs) path ||
-                  pkgs.lib.hasPrefix (toString ./.github) path ||
-                  baseName == "README.md" ||
-                  baseName == ".git" ||
-                  baseName == "result");
-            };
+            src = sourceFilter;
             nativeBuildInputs = with pkgs; [
               bun
             ];
@@ -107,19 +112,7 @@
           bunApp = pkgs.stdenv.mkDerivation {
             pname = "bun-server";
             version = "1.0.0";
-            src = pkgs.lib.cleanSourceWith {
-              src = ./.;
-              filter = path: type:
-                let
-                  baseName = baseNameOf path;
-                in
-                # Exclude documentation and CI-only files that don't affect builds
-                  ! (pkgs.lib.hasPrefix (toString ./docs) path ||
-                  pkgs.lib.hasPrefix (toString ./.github) path ||
-                  baseName == "README.md" ||
-                  baseName == ".git" ||
-                  baseName == "result");
-            };
+            src = sourceFilter;
             nativeBuildInputs = with pkgs; [
               bun
             ];
@@ -155,13 +148,17 @@
             exec ${pkgs.bun}/bin/bun ${./index.ts} "$@"
           '';
 
+          # Check if server.ts exists to conditionally include server package
+          hasServerFile = builtins.pathExists (./. + "/server.ts");
+
         in
         {
           packages = {
             default = reactApp;
             react = reactApp;
-            server = bunApp;
             script = bunScript;
+          } // pkgs.lib.optionalAttrs hasServerFile {
+            server = bunApp;
           };
 
           apps = {
@@ -170,14 +167,14 @@
               name = "serve";
             };
 
-            server = flake-utils.lib.mkApp {
-              drv = bunApp;
-              name = "bun-app";
-            };
-
             script = flake-utils.lib.mkApp {
               drv = bunScript;
               name = "bun-script";
+            };
+          } // pkgs.lib.optionalAttrs hasServerFile {
+            server = flake-utils.lib.mkApp {
+              drv = bunApp;
+              name = "bun-app";
             };
           };
 

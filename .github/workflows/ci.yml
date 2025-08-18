@@ -4,6 +4,9 @@ on:
   pull_request:
   push:
     branches: [ main ]
+  schedule:
+    # Weekly macOS validation (Sundays at 6 AM UTC)
+    - cron: '0 6 * * 0'
 
 # Cancel in-progress runs when new commit pushed
 concurrency:
@@ -67,6 +70,7 @@ jobs:
           cores = 0
     - name: Cache Nix store paths
       uses: actions/cache@v4
+      id: nix-cache
       with:
         path: |
           ~/.cache/nix
@@ -76,16 +80,25 @@ jobs:
         restore-keys: |
           nix-${{ runner.os }}-${{ hashFiles('flake.lock') }}
           nix-${{ runner.os }}-
+    - name: Cache performance info
+      run: |
+        if [[ "${{ steps.nix-cache.outputs.cache-hit }}" == "true" ]]; then
+          echo "⚡ Nix cache hit - build should be fast"
+        else
+          echo "🛠️  Nix cache miss - first build may take longer"
+        fi
+    
     - uses: cachix/cachix-action@v14
       with:
         name: shedali
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
     
-    # Pre-populate common dependencies
+    # Pre-populate actual dependencies for better cache warming
     - name: Pre-populate Nix store
       run: |
-        echo "Pre-building common dependencies..."
-        nix build nixpkgs#hello --no-link  # Quick test
+        echo "Pre-building actual dependencies..."
+        nix build nixpkgs#bun --no-link
+        nix build nixpkgs#nodejs --no-link
         nix develop --command echo "Dev shell ready"
     
     # All builds and tests in sequence (but same job)
@@ -99,26 +112,49 @@ jobs:
     
     - name: Build all targets
       run: |
+        build_start=$(date +%s)
+        
         echo "Building React app..."
+        react_start=$(date +%s)
         nix build .#react -L
         test -d ./result/www
+        react_time=$(($(date +%s) - react_start))
+        echo "✅ React build completed in ${react_time}s"
         
-        echo "Building server..."
-        nix build .#server -L  
-        test -f ./result/bin/bun-app
+        # Only build server if server.ts exists
+        if [ -f "server.ts" ]; then
+          echo "Building server..."
+          server_start=$(date +%s)
+          nix build .#server -L  
+          test -f ./result/bin/bun-app
+          server_time=$(($(date +%s) - server_start))
+          echo "✅ Server build completed in ${server_time}s"
+        else
+          echo "⏭️  No server.ts found, skipping server build"
+        fi
         
         echo "Building script..."
+        script_start=$(date +%s)
         nix build .#script -L
+        script_time=$(($(date +%s) - script_start))
+        echo "✅ Script build completed in ${script_time}s"
+        
+        total_time=$(($(date +%s) - build_start))
+        echo "🎯 Total build time: ${total_time}s"
     
     - name: Test dev shell
       run: |
         nix develop --command bun --version
         nix develop --command which nixpkgs-fmt
 
-  # Keep macOS test only for final validation if needed
+  # macOS validation only on releases and weekly schedule to save CI time
   macos-validation:
     needs: [changes, build-and-test]
-    if: needs.changes.outputs.source-changed == 'true' && github.ref == 'refs/heads/main'
+    if: |
+      needs.changes.outputs.source-changed == 'true' && (
+        github.event_name == 'release' ||
+        (github.ref == 'refs/heads/main' && github.event_name == 'schedule')
+      )
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v4
@@ -164,18 +200,31 @@ jobs:
         echo "Build and test: ${{ needs.build-and-test.result }}"
         echo "macOS validation: ${{ needs.macos-validation.result }}"
         
-        # For docs-only changes, docs-check should succeed and builds should be skipped
-        # For source changes, build-and-test should succeed and docs-check should be skipped
+        # Enhanced validation logic
+        success_count=0
         
+        # Check for successful completion paths
         if [[ "${{ needs.docs-check.result }}" == "success" ]]; then
           echo "✅ Docs-only path completed successfully"
-          exit 0
-        elif [[ "${{ needs.build-and-test.result }}" == "success" ]]; then
+          success_count=$((success_count + 1))
+        fi
+        
+        if [[ "${{ needs.build-and-test.result }}" == "success" ]]; then
           echo "✅ Build path completed successfully"
+          success_count=$((success_count + 1))
+        fi
+        
+        # macOS validation is optional and doesn't block
+        if [[ "${{ needs.macos-validation.result }}" == "success" ]]; then
+          echo "✅ macOS validation passed"
+        elif [[ "${{ needs.macos-validation.result }}" == "skipped" ]]; then
+          echo "⏭️  macOS validation skipped (scheduled runs only)"
+        fi
+        
+        if [[ $success_count -gt 0 ]]; then
+          echo "✅ CI completed successfully ($success_count successful paths)"
           exit 0
         else
           echo "❌ No successful completion path found"
-          echo "docs-check: ${{ needs.docs-check.result }}"
-          echo "build-and-test: ${{ needs.build-and-test.result }}"
           exit 1
         fi
