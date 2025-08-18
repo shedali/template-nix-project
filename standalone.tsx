@@ -1,14 +1,28 @@
 // Standalone React app that bundles everything
 // This will be used for Nix builds
 
-// Inline a minimal React-like implementation for the build
+// Working React-like implementation with actual state management
+let currentComponent: any = null;
+let stateIndex = 0;
+let states: any[] = [];
+
 const React = {
   createElement(type: any, props: any, ...children: any[]) {
     return { type, props: { ...props, children } };
   },
   useState(initial: any) {
-    console.log('useState called with:', initial);
-    return [initial, () => {}];
+    const index = stateIndex++;
+    if (states[index] === undefined) {
+      states[index] = initial;
+    }
+
+    const setState = (newValue: any) => {
+      states[index] =
+        typeof newValue === 'function' ? newValue(states[index]) : newValue;
+      rerender();
+    };
+
+    return [states[index], setState];
   },
 };
 
@@ -17,20 +31,45 @@ function App() {
 
   return React.createElement(
     'div',
-    { className: 'app' },
-    React.createElement('h1', null, 'Bun + React + Nix'),
-    React.createElement('p', null, 'Count: ', count),
+    {
+      className: 'app',
+      style: 'padding: 20px; font-family: system-ui, sans-serif;',
+    },
+    React.createElement('h1', { style: 'color: #333;' }, 'Bun + React + Nix'),
+    React.createElement(
+      'p',
+      { style: 'font-size: 18px; margin: 20px 0;' },
+      'Count: ',
+      count
+    ),
     React.createElement(
       'button',
       {
-        onclick: () => console.log('Button clicked!'),
+        onclick: () => {
+          console.log('Button clicked! Current count:', count);
+          setCount(count + 1);
+        },
+        style:
+          'padding: 10px 20px; font-size: 16px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; margin: 10px 0;',
       },
       'Increment'
     ),
     React.createElement(
+      'button',
+      {
+        onclick: () => {
+          console.log('Reset clicked!');
+          setCount(0);
+        },
+        style:
+          'padding: 10px 20px; font-size: 16px; background: #666; color: white; border: none; border-radius: 4px; cursor: pointer; margin: 0 10px;',
+      },
+      'Reset'
+    ),
+    React.createElement(
       'p',
-      null,
-      'This is a standalone build without external dependencies!'
+      { style: 'color: #666; font-style: italic;' },
+      'This is a standalone build with working React state! 🎉'
     )
   );
 }
@@ -65,6 +104,16 @@ function render(element: any, container: HTMLElement) {
   }
 
   container.appendChild(domElement);
+}
+
+// Re-render function for state updates
+function rerender() {
+  const container = document.getElementById('root');
+  if (container) {
+    stateIndex = 0; // Reset state index for re-render
+    container.innerHTML = ''; // Clear previous render
+    render(App(), container);
+  }
 }
 
 // Mount the app
