@@ -231,6 +231,23 @@
                 echo "⚠️  Note: The warnings don't affect functionality, they're just security notices."
               '';
             }
+            {
+              name = "ci-perf";
+              help = "Generate CI performance report";
+              command = "./scripts/ci-perf-report.sh";
+            }
+            {
+              name = "ci-status";
+              help = "Check current CI status and recent runs";
+              command = ''
+                echo "🔍 Checking CI status..."
+                echo ""
+                gh run list --limit 5 --json number,conclusion,displayTitle,createdAt,updatedAt | \
+                jq -r '.[] | "[\(.conclusion // "running")] \(.displayTitle) - \(.createdAt | split("T")[0])"'
+                echo ""
+                echo "💡 Use 'ci-perf' for detailed performance analysis"
+              '';
+            }
           ];
 
           env = [
@@ -254,6 +271,8 @@
             • lint-fix       - Auto-fix Nix formatting and style issues
             • install-hooks  - Install pre-commit hooks
             • fix-cache-warnings - Fix Cachix warnings (requires sudo)
+            • ci-perf        - Generate CI performance report  
+            • ci-status      - Check current CI status
 
             Run 'menu' to see this again.
           '';

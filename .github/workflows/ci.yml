@@ -129,6 +129,19 @@ jobs:
         
         total_time=$(($(date +%s) - build_start))
         echo "🎯 Total build time: ${total_time}s"
+        
+        # Performance tracking
+        echo "## Build Performance" >> $GITHUB_STEP_SUMMARY
+        echo "| Component | Duration | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|-----------|----------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| React App | ${react_time}s | $([ $react_time -gt 60 ] && echo '⚠️' || echo '✅') |" >> $GITHUB_STEP_SUMMARY
+        echo "| Script | ${script_time}s | $([ $script_time -gt 30 ] && echo '⚠️' || echo '✅') |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Total** | **${total_time}s** | $([ $total_time -gt 180 ] && echo '⚠️' || echo '✅') |" >> $GITHUB_STEP_SUMMARY
+        
+        # Alert if build is unusually slow
+        if [ $total_time -gt 300 ]; then
+          echo "::warning title=Slow Build::Build took ${total_time}s, which exceeds the 5-minute threshold. Consider investigating."
+        fi
     
     - name: Test dev shell
       run: |
