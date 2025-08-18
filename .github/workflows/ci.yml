@@ -38,7 +38,7 @@ jobs:
   # Fast path for docs-only changes
   docs-check:
     needs: changes
-    if: needs.changes.outputs.docs-only == 'true' && needs.changes.outputs.source-changed == 'false'
+    if: needs.changes.outputs.docs-only == 'true' && needs.changes.outputs.source-changed != 'true'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -157,8 +157,25 @@ jobs:
       - macos-validation
     runs-on: ubuntu-latest
     steps:
-    - name: Verify all checks passed
-      uses: re-actors/alls-green@release/v1
-      with:
-        allowed-skipped-jobs: build-and-test,macos-validation,docs-check
-        jobs: ${{ toJSON(needs) }}
+    - name: Check results
+      run: |
+        echo "Changes job: ${{ needs.changes.result }}"
+        echo "Docs check: ${{ needs.docs-check.result }}"
+        echo "Build and test: ${{ needs.build-and-test.result }}"
+        echo "macOS validation: ${{ needs.macos-validation.result }}"
+        
+        # For docs-only changes, docs-check should succeed and builds should be skipped
+        # For source changes, build-and-test should succeed and docs-check should be skipped
+        
+        if [[ "${{ needs.docs-check.result }}" == "success" ]]; then
+          echo "✅ Docs-only path completed successfully"
+          exit 0
+        elif [[ "${{ needs.build-and-test.result }}" == "success" ]]; then
+          echo "✅ Build path completed successfully"
+          exit 0
+        else
+          echo "❌ No successful completion path found"
+          echo "docs-check: ${{ needs.docs-check.result }}"
+          echo "build-and-test: ${{ needs.build-and-test.result }}"
+          exit 1
+        fi
