@@ -108,48 +108,10 @@
             };
           };
 
-          # Server-side executable (if you have a server.ts)
-          bunApp = pkgs.stdenv.mkDerivation {
-            pname = "bun-server";
-            version = "1.0.0";
-            src = sourceFilter;
-            nativeBuildInputs = with pkgs; [
-              bun
-            ];
-
-            buildPhase = ''
-              export HOME=$(mktemp -d)
-              # Only build if server file exists
-              if [ -f server.ts ]; then
-                bun build server.ts --compile --outfile ./app
-              else
-                # Fallback to simple CLI app
-                echo '#!/usr/bin/env bun' > ./app
-                echo 'console.log("No server.ts found");' >> ./app
-                chmod +x ./app
-              fi
-            '';
-
-            installPhase = ''
-              mkdir -p $out/bin
-              cp ./app $out/bin/bun-app
-              chmod +x $out/bin/bun-app
-            '';
-
-            meta = with pkgs.lib; {
-              description = "Bun server application";
-              license = licenses.mit;
-              platforms = platforms.all;
-            };
-          };
-
           # Alternative: Direct execution without building
           bunScript = pkgs.writeShellScriptBin "bun-script" ''
             exec ${pkgs.bun}/bin/bun ${./index.ts} "$@"
           '';
-
-          # Check if server.ts exists to conditionally include server package
-          hasServerFile = builtins.pathExists (./. + "/server.ts");
 
         in
         {
@@ -157,8 +119,6 @@
             default = reactApp;
             react = reactApp;
             script = bunScript;
-          } // pkgs.lib.optionalAttrs hasServerFile {
-            server = bunApp;
           };
 
           apps = {
@@ -170,11 +130,6 @@
             script = flake-utils.lib.mkApp {
               drv = bunScript;
               name = "bun-script";
-            };
-          } // pkgs.lib.optionalAttrs hasServerFile {
-            server = flake-utils.lib.mkApp {
-              drv = bunApp;
-              name = "bun-app";
             };
           };
 
@@ -217,11 +172,6 @@
                 name = "build";
                 help = "Build React app for production";
                 command = "bun build index.tsx --outdir ./dist --minify";
-              }
-              {
-                name = "build-server";
-                help = "Build server executable";
-                command = "bun build server.ts --compile --outfile ./app";
               }
               {
                 name = "preview";

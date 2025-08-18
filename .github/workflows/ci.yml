@@ -121,18 +121,6 @@ jobs:
         react_time=$(($(date +%s) - react_start))
         echo "✅ React build completed in ${react_time}s"
         
-        # Only build server if server.ts exists
-        if [ -f "server.ts" ]; then
-          echo "Building server..."
-          server_start=$(date +%s)
-          nix build .#server -L  
-          test -f ./result/bin/bun-app
-          server_time=$(($(date +%s) - server_start))
-          echo "✅ Server build completed in ${server_time}s"
-        else
-          echo "⏭️  No server.ts found, skipping server build"
-        fi
-        
         echo "Building script..."
         script_start=$(date +%s)
         nix build .#script -L
