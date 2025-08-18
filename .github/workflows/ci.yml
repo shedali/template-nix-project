@@ -93,7 +93,9 @@ jobs:
     - uses: actions/checkout@v4
     - uses: DeterminateSystems/nix-installer-action@v4
     - name: Check formatting
-      run: nix fmt -- --check
+      run: |
+        nix fmt
+        git diff --exit-code || (echo "Nix files need formatting. Run 'nix fmt'" && exit 1)
 
   # Single status check for branch protection
   all-checks:
