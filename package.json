@@ -1,6 +1,7 @@
 {
   "name": "bun-react-app",
   "dependencies": {
+    "mobx": "^6.13.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
