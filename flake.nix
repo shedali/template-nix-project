@@ -55,11 +55,14 @@
         devShells.default = devshell.legacyPackages.${system}.mkShell {
           packages = [ pkgs.bun pkgs.nixpkgs-fmt pkgs.nodePackages.prettier pkgs.cachix pkgs.jq ];
           devshell.startup.pre-commit-hooks.text = pre-commit-check.shellHook;
+          devshell.startup.bun-install.text = "bun install";
           commands = [
-            { name = "dev"; help = "Start dev server"; command = "bunx serve . -p 3000"; }
-            { name = "format"; help = "Format files"; command = "nixpkgs-fmt flake.nix && prettier --write 'src/**/*.{ts,tsx}' 'public/**/*.html'"; }
+            { name = "dev"; help = "Start Bun dev server"; command = "bunx serve . -p 3000"; }
+            { name = "build"; help = "Build static output"; command = "bun build src/main.tsx --outdir ./dist --target browser && cp index.html ./dist/"; }
+            { name = "serve"; help = "Serve built output"; command = "bunx serve ./dist -p 3000"; }
+            { name = "format"; help = "Format files"; command = "nixpkgs-fmt flake.nix && prettier --write 'src/**/*.{ts,tsx}'"; }
           ];
-          motd = "🚀 Bun + React + Nix\nCommands: dev, format, menu";
+          motd = "🚀 Bun + React + Nix\nCommands: dev, build, serve, format, menu";
         };
         formatter = pkgs.writeShellScriptBin "fmt" "${pkgs.nixpkgs-fmt}/bin/nixpkgs-fmt flake.nix";
         checks.pre-commit-check = pre-commit-check;
