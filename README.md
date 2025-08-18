@@ -131,6 +131,7 @@ nix develop
 - 🪝 **Pre-commit Hooks** - Automatic code quality checks on git commits
 - ⚡ **Hot Reload** - React development with Vite hot reload
 - 🤖 **CI/CD Ready** - GitHub Actions with Cachix integration
+- 🌍 **GitHub Pages** - Automatic deployment of React app to Pages
 
 ## Usage
 
