@@ -9,6 +9,7 @@ function App() {
       <h1>React Template</h1>
       <p>Count: {count}</p>
       <button onClick={() => setCount(count + 1)}>Click me</button>
+      <p>Nix template</p>
     </div>
   );
 }
