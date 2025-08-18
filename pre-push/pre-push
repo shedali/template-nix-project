@@ -1,0 +1,33 @@
+#!/bin/bash
+echo "🔍 Running pre-push checks..."
+
+# Build to ensure everything works
+if ! nix build; then
+  echo "❌ Build failed - push aborted"
+  exit 1
+fi
+
+# Format check - should block push if not formatted
+# (pre-commit should have auto-formatted, so this catches bypasses)
+if ! timeout 10 nix fmt -- --check 2>/dev/null; then
+  echo "❌ Files are not formatted correctly!"
+  echo "   This should have been auto-formatted by pre-commit."
+  echo "   Run 'nix fmt' to format, then commit the changes."
+  exit 1
+fi
+
+# Push to Cachix if configured
+if command -v cachix &> /dev/null; then
+  if [ -n "$CACHIX_CACHE" ]; then
+    echo "📦 Pushing to Cachix cache: $CACHIX_CACHE"
+    nix build --json | jq -r '.[].outputs | to_entries[].value' | cachix push "$CACHIX_CACHE"
+    echo "✅ Pushed to Cachix"
+  else
+    echo "⚠️  CACHIX_CACHE not set - skipping Cachix push"
+    echo "   Set with: export CACHIX_CACHE=your-cache-name"
+  fi
+else
+  echo "⚠️  Cachix not installed - skipping cache push"
+fi
+
+echo "✅ Pre-push checks passed"

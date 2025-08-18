@@ -75,6 +75,13 @@
           packages = [ pkgs.bun pkgs.nixpkgs-fmt pkgs.nodePackages.prettier pkgs.cachix pkgs.jq ];
           devshell.startup.pre-commit-hooks.text = pre-commit-check.shellHook;
           devshell.startup.bun-install.text = "bun install";
+          devshell.startup.git-hooks.text = ''
+            # Install version-controlled git hooks
+            if [ -f pre-push ]; then
+              cp pre-push .git/hooks/pre-push
+              chmod +x .git/hooks/pre-push
+            fi
+          '';
           commands = [
             { name = "dev"; help = "Start Bun dev server"; command = "bunx serve . -p 3000"; }
             { name = "build"; help = "Build static output"; command = "bun build src/main.tsx --outdir ./dist --target browser && cp build.html ./dist/index.html"; }

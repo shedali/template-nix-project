@@ -27,6 +27,7 @@ This is a minimal, high-performance template for building React applications wit
 - **direnv** with `.envrc` sets `NIX_CONFIG="accept-flake-config = true"`
 - **DevShell commands**: `dev`, `build`, `serve`, `format`, `update-hash`
 - **Automatic dependency installation** via `bun install` on shell startup
+- **Auto-installing git hooks** from root-level hook files when entering devshell
 - **Pre-commit hooks** auto-format code, pre-push hooks verify build + push to Cachix
 
 ### File Structure
@@ -78,7 +79,7 @@ When package.json dependencies change:
 - `.envrc` - Sets `NIX_CONFIG="accept-flake-config = true"`
 - `src/main.tsx` - Clean React component with useState
 - `.github/workflows/` - Optimized CI/CD with Cachix integration
-- `.git/hooks/pre-push` - Build verification + Cachix upload
+- `pre-push` - Version-controlled pre-push hook (auto-installed by devshell)
 
 ## Environment Variables
 
