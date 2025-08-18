@@ -21,6 +21,12 @@ jobs:
     - uses: actions/checkout@v4
     - uses: DeterminateSystems/nix-installer-action@v4
     - uses: DeterminateSystems/magic-nix-cache-action@v2
+    - name: Cache Nix store
+      uses: actions/cache@v4
+      with:
+        path: /nix
+        key: nix-store-${{ runner.os }}-${{ hashFiles('flake.lock') }}
+        restore-keys: nix-store-${{ runner.os }}-
     - uses: cachix/cachix-action@v14
       with:
         name: shedali
@@ -39,6 +45,12 @@ jobs:
     - uses: actions/checkout@v4
     - uses: DeterminateSystems/nix-installer-action@v4
     - uses: DeterminateSystems/magic-nix-cache-action@v2
+    - name: Cache Nix store
+      uses: actions/cache@v4
+      with:
+        path: /nix
+        key: nix-store-${{ runner.os }}-${{ hashFiles('flake.lock') }}
+        restore-keys: nix-store-${{ runner.os }}-
     - uses: cachix/cachix-action@v14
       with:
         name: shedali
@@ -57,6 +69,12 @@ jobs:
     - uses: actions/checkout@v4
     - uses: DeterminateSystems/nix-installer-action@v4
     - uses: DeterminateSystems/magic-nix-cache-action@v2
+    - name: Cache Nix store
+      uses: actions/cache@v4
+      with:
+        path: /nix
+        key: nix-store-${{ runner.os }}-${{ hashFiles('flake.lock') }}
+        restore-keys: nix-store-${{ runner.os }}-
     - uses: cachix/cachix-action@v14
       with:
         name: shedali
@@ -70,6 +88,12 @@ jobs:
     - uses: actions/checkout@v4
     - uses: DeterminateSystems/nix-installer-action@v4
     - uses: DeterminateSystems/magic-nix-cache-action@v2
+    - name: Cache Nix store
+      uses: actions/cache@v4
+      with:
+        path: /nix
+        key: nix-store-${{ runner.os }}-${{ hashFiles('flake.lock') }}
+        restore-keys: nix-store-${{ runner.os }}-
     - name: Check flake
       run: nix flake check
 
@@ -82,6 +106,12 @@ jobs:
     - uses: actions/checkout@v4
     - uses: DeterminateSystems/nix-installer-action@v4
     - uses: DeterminateSystems/magic-nix-cache-action@v2
+    - name: Cache Nix store
+      uses: actions/cache@v4
+      with:
+        path: /nix
+        key: nix-store-${{ runner.os }}-${{ hashFiles('flake.lock') }}
+        restore-keys: nix-store-${{ runner.os }}-
     - name: Test dev shell
       run: |
         nix develop --command bun --version
@@ -92,6 +122,12 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: DeterminateSystems/nix-installer-action@v4
+    - name: Cache Nix store
+      uses: actions/cache@v4
+      with:
+        path: /nix
+        key: nix-store-${{ runner.os }}-${{ hashFiles('flake.lock') }}
+        restore-keys: nix-store-${{ runner.os }}-
     - name: Check formatting
       run: |
         nix fmt

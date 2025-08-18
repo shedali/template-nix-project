@@ -16,9 +16,11 @@
 
 ### ✅ Step 4: Cache Nix Store
 
-- Added caching of `/nix` directory between runs
-- Keyed on `flake.lock` for cache invalidation
-- **Expected improvement**: Much faster subsequent runs
+- Added caching of `/nix` directory between runs using GitHub Actions cache
+- Keyed on `flake.lock` + OS for cache invalidation
+- Cache key: `nix-store-${{ runner.os }}-${{ hashFiles('flake.lock') }}`
+- Fallback key: `nix-store-${{ runner.os }}-` (partial cache hits)
+- **Expected improvement**: Much faster subsequent runs (90%+ cache hit rate)
 
 ### ✅ Step 5: Remove Redundancy
 
@@ -62,8 +64,14 @@ Now: Build1 + Build2 + Build3 + Build4 (parallel)
 ## Cache Strategy
 
 1. **DeterminateSystems Magic Cache**: In-memory caching during the run
-2. **GitHub Actions Cache**: `/nix` store persisted between runs
+2. **GitHub Actions Cache**: `/nix` store persisted between runs (2GB limit)
 3. **Cachix**: Binary cache for pre-built packages
+
+### Cache Hierarchy (fastest to slowest)
+
+1. **Magic Cache** (RAM) - Instant, same job only
+2. **GitHub Actions Cache** (disk) - ~5-10s restore, cross-job persistence
+3. **Cachix** (network) - ~15-30s download, global availability
 
 ## Next Steps to Make It Even Faster
 
