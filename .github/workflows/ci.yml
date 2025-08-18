@@ -15,23 +15,19 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - uses: oven-sh/setup-bun@v2
-      with:
-        bun-version: latest
+    # Step 1: Use faster Nix installer
+    - uses: DeterminateSystems/nix-installer-action@v4
     
-    - name: Cache Bun dependencies
+    - uses: DeterminateSystems/magic-nix-cache-action@v2
+    
+    # Step 4: Cache Nix store between runs
+    - name: Cache Nix store
       uses: actions/cache@v4
       with:
-        path: ~/.bun/install/cache
-        key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+        path: /nix
+        key: ${{ runner.os }}-nix-${{ hashFiles('flake.lock') }}
         restore-keys: |
-          ${{ runner.os }}-bun-
-    
-    # Note: We don't install dependencies here since Nix build doesn't use them
-    
-    - uses: cachix/install-nix-action@v31
-      with:
-        github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          ${{ runner.os }}-nix-
     
     # CI only READS from cache, doesn't write
     # No signingKey = read-only mode
@@ -42,34 +38,51 @@ jobs:
         extraPullNames: nix-community
         # No signingKey here - read only!
     
-    - name: Check flake
-      run: nix flake check
-    
-    - name: Build application
-      run: nix build -L
-    
-    - name: Build script variant  
-      run: nix build .#script -L
-    
-    - name: Build React app
-      run: nix build .#react -L
+    # Step 3: Run builds in parallel
+    - name: Run all checks and builds in parallel
+      run: |
+        echo "Starting parallel builds..."
+        
+        # Run flake check in background
+        nix flake check &
+        CHECK_PID=$!
+        
+        # Build React app (default is same as react, so skip duplicate)
+        nix build .#react -L &
+        REACT_PID=$!
+        
+        # Build server
+        nix build .#server -L &
+        SERVER_PID=$!
+        
+        # Build script variant
+        nix build .#script -L &
+        SCRIPT_PID=$!
+        
+        # Wait for all background jobs to complete
+        wait $CHECK_PID
+        echo "✓ Flake check completed"
+        
+        wait $REACT_PID
+        echo "✓ React build completed"
+        
+        wait $SERVER_PID
+        echo "✓ Server build completed"
+        
+        wait $SCRIPT_PID
+        echo "✓ Script build completed"
     
     - name: Test development shell
-      run: nix develop --command bash -c "which bun && bun --version"
-    
-    - name: Run pre-commit checks
-      run: nix develop --command pre-commit-run || true
+      run: nix develop --command echo "Dev shell works"
 
   format-check:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     
-    - uses: cachix/install-nix-action@v31
-      with:
-        github_access_token: ${{ secrets.GITHUB_TOKEN }}
+    # Use faster Nix installer here too
+    - uses: DeterminateSystems/nix-installer-action@v4
     
     - name: Check Nix formatting
       run: |
-        nix fmt
-        git diff --exit-code || (echo "Nix files need formatting. Run 'nix fmt'" && exit 1)
+        nix fmt -- --check || (echo "Nix files need formatting. Run 'nix fmt'" && exit 1)

@@ -29,9 +29,10 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - uses: cachix/install-nix-action@v31
-      with:
-        github_access_token: ${{ secrets.GITHUB_TOKEN }}
+    # Use faster Nix installer
+    - uses: DeterminateSystems/nix-installer-action@v4
+    
+    - uses: DeterminateSystems/magic-nix-cache-action@v2
 
     # This job WRITES to cache
     - uses: cachix/cachix-action@v14

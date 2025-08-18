@@ -1,0 +1,112 @@
+name: "CI"
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  # Single job to install Nix and cache it
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      cache-key: ${{ steps.cache.outputs.cache-key }}
+    steps:
+    - uses: actions/checkout@v4
+    
+    - uses: DeterminateSystems/nix-installer-action@v4
+    
+    - uses: DeterminateSystems/magic-nix-cache-action@v2
+    
+    - id: cache
+      run: echo "cache-key=${{ hashFiles('flake.lock') }}" >> $GITHUB_OUTPUT
+    
+    # Pre-download dependencies to warm cache
+    - name: Warm up caches
+      run: |
+        nix flake metadata
+        nix develop --command true
+
+  # Parallel builds using matrix
+  build:
+    needs: setup
+    strategy:
+      fail-fast: false  # Don't cancel others if one fails
+      matrix:
+        target:
+          - name: "React App"
+            command: "nix build .#react -L"
+          - name: "Server"
+            command: "nix build .#server -L"
+          - name: "Script"
+            command: "nix build .#script -L"
+          - name: "Flake Check"
+            command: "nix flake check"
+        os: [ubuntu-latest, macos-latest]
+    
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.target.name }} (${{ matrix.os }})
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - uses: DeterminateSystems/nix-installer-action@v4
+    
+    - uses: DeterminateSystems/magic-nix-cache-action@v2
+    
+    - uses: cachix/cachix-action@v14
+      with:
+        name: shedali
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+        extraPullNames: nix-community
+    
+    - name: Build ${{ matrix.target.name }}
+      run: ${{ matrix.target.command }}
+
+  # Dev shell test (separate for clarity)
+  devshell:
+    needs: setup
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - uses: DeterminateSystems/nix-installer-action@v4
+    
+    - uses: DeterminateSystems/magic-nix-cache-action@v2
+    
+    - name: Test development shell
+      run: |
+        nix develop --command bun --version
+        nix develop --command menu || true
+
+  format-check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - uses: DeterminateSystems/nix-installer-action@v4
+    
+    - name: Check Nix formatting
+      run: nix fmt -- --check
+
+  # Summary job for branch protection
+  ci-summary:
+    if: always()
+    needs: [build, devshell, format-check]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Summary
+      run: |
+        echo "Build: ${{ needs.build.result }}"
+        echo "DevShell: ${{ needs.devshell.result }}"
+        echo "Format: ${{ needs.format-check.result }}"
+        
+        if [ "${{ needs.build.result }}" != "success" ] || \
+           [ "${{ needs.devshell.result }}" != "success" ] || \
+           [ "${{ needs.format-check.result }}" != "success" ]; then
+          exit 1
+        fi
