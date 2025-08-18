@@ -53,7 +53,6 @@ jobs:
         # Build all packages
         nix build -L --json | jq -r '.[].outputs | to_entries[].value' | cachix push shedali
         nix build .#react -L --json | jq -r '.[].outputs | to_entries[].value' | cachix push shedali
-        nix build .#server -L --json | jq -r '.[].outputs | to_entries[].value' | cachix push shedali
         nix build .#script -L --json | jq -r '.[].outputs | to_entries[].value' | cachix push shedali
         
         # Build and cache development shell

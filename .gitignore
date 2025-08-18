@@ -4,3 +4,4 @@ node_modules
 result
 .envrc
 .pre-commit-config.yaml
+.history
