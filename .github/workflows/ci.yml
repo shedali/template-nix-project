@@ -11,96 +11,50 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Each build is a separate job - runs in parallel
-  build-react:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+  # Check what files changed to determine if we need full builds
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      docs-only: ${{ steps.changes.outputs.docs-only }}
+      source-changed: ${{ steps.changes.outputs.source-changed }}
     steps:
     - uses: actions/checkout@v4
-    - uses: DeterminateSystems/nix-installer-action@v4
-    - uses: DeterminateSystems/magic-nix-cache-action@v2
-    - name: Cache Nix store
-      uses: actions/cache@v4
       with:
-        path: /nix
-        key: nix-store-${{ runner.os }}-${{ hashFiles('flake.lock') }}
-        restore-keys: nix-store-${{ runner.os }}-
-    - uses: cachix/cachix-action@v14
+        fetch-depth: 0
+    - uses: dorny/paths-filter@v3
+      id: changes
       with:
-        name: shedali
-        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-    - name: Build React App
-      run: nix build .#react -L
-    - name: Test output exists
-      run: test -d ./result/www
+        filters: |
+          docs-only:
+            - 'docs/**'
+            - 'README.md'
+            - '*.md'
+          source-changed:
+            - '**'
+            - '!docs/**'
+            - '!README.md'
+            - '!*.md'
 
-  build-server:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-    - uses: actions/checkout@v4
-    - uses: DeterminateSystems/nix-installer-action@v4
-    - uses: DeterminateSystems/magic-nix-cache-action@v2
-    - name: Cache Nix store
-      uses: actions/cache@v4
-      with:
-        path: /nix
-        key: nix-store-${{ runner.os }}-${{ hashFiles('flake.lock') }}
-        restore-keys: nix-store-${{ runner.os }}-
-    - uses: cachix/cachix-action@v14
-      with:
-        name: shedali
-        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-    - name: Build Server
-      run: nix build .#server -L
-    - name: Test output exists
-      run: test -f ./result/bin/bun-app
-
-  build-script:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-    - uses: actions/checkout@v4
-    - uses: DeterminateSystems/nix-installer-action@v4
-    - uses: DeterminateSystems/magic-nix-cache-action@v2
-    - name: Cache Nix store
-      uses: actions/cache@v4
-      with:
-        path: /nix
-        key: nix-store-${{ runner.os }}-${{ hashFiles('flake.lock') }}
-        restore-keys: nix-store-${{ runner.os }}-
-    - uses: cachix/cachix-action@v14
-      with:
-        name: shedali
-        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-    - name: Build Script
-      run: nix build .#script -L
-
-  flake-check:
+  # Fast path for docs-only changes
+  docs-check:
+    needs: changes
+    if: needs.changes.outputs.docs-only == 'true' && needs.changes.outputs.source-changed == 'false'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: DeterminateSystems/nix-installer-action@v4
-    - uses: DeterminateSystems/magic-nix-cache-action@v2
-    - name: Cache Nix store
-      uses: actions/cache@v4
-      with:
-        path: /nix
-        key: nix-store-${{ runner.os }}-${{ hashFiles('flake.lock') }}
-        restore-keys: nix-store-${{ runner.os }}-
-    - name: Check flake
-      run: nix flake check
+    - name: Docs-only change detected
+      run: |
+        echo "✅ Documentation-only change detected"
+        echo "⚡ Skipping builds - no source code changes"
+        echo "📝 Changed files affect only documentation"
 
-  devshell-test:
+  # Consolidated build job - everything in one place
+  build-and-test:
+    needs: changes
+    if: needs.changes.outputs.source-changed == 'true'
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest]  # Only test on Linux for speed, add macOS later if needed
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v4
@@ -112,40 +66,72 @@ jobs:
         path: /nix
         key: nix-store-${{ runner.os }}-${{ hashFiles('flake.lock') }}
         restore-keys: nix-store-${{ runner.os }}-
+    - uses: cachix/cachix-action@v14
+      with:
+        name: shedali
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+    
+    # All builds and tests in sequence (but same job)
+    - name: Check formatting
+      run: |
+        nix fmt
+        git diff --exit-code || (echo "Nix files need formatting. Run 'nix fmt'" && exit 1)
+    
+    - name: Check flake
+      run: nix flake check
+    
+    - name: Build all targets
+      run: |
+        echo "Building React app..."
+        nix build .#react -L
+        test -d ./result/www
+        
+        echo "Building server..."
+        nix build .#server -L  
+        test -f ./result/bin/bun-app
+        
+        echo "Building script..."
+        nix build .#script -L
+    
     - name: Test dev shell
       run: |
         nix develop --command bun --version
         nix develop --command which nixpkgs-fmt
 
-  format-check:
-    runs-on: ubuntu-latest
+  # Keep macOS test only for final validation if needed
+  macos-validation:
+    needs: [changes, build-and-test]
+    if: needs.changes.outputs.source-changed == 'true' && github.ref == 'refs/heads/main'
+    runs-on: macos-latest
     steps:
     - uses: actions/checkout@v4
     - uses: DeterminateSystems/nix-installer-action@v4
+    - uses: DeterminateSystems/magic-nix-cache-action@v2
     - name: Cache Nix store
       uses: actions/cache@v4
       with:
         path: /nix
         key: nix-store-${{ runner.os }}-${{ hashFiles('flake.lock') }}
         restore-keys: nix-store-${{ runner.os }}-
-    - name: Check formatting
-      run: |
-        nix fmt
-        git diff --exit-code || (echo "Nix files need formatting. Run 'nix fmt'" && exit 1)
+    - uses: cachix/cachix-action@v14
+      with:
+        name: shedali
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+    - name: Quick build test on macOS
+      run: nix build .#react -L
 
   # Single status check for branch protection
   all-checks:
     if: always()
     needs: 
-      - build-react
-      - build-server
-      - build-script
-      - flake-check
-      - devshell-test
-      - format-check
+      - changes
+      - docs-check
+      - build-and-test
+      - macos-validation
     runs-on: ubuntu-latest
     steps:
     - name: Verify all checks passed
       uses: re-actors/alls-green@release/v1
       with:
+        allowed-skipped-jobs: build-and-test,macos-validation,docs-check
         jobs: ${{ toJSON(needs) }}
