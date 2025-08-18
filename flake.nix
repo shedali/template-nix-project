@@ -16,14 +16,18 @@
         pkgs = nixpkgs.legacyPackages.${system};
         devshell-pkgs = devshell.legacyPackages.${system};
 
-        # Pre-commit hooks
+        # Pre-commit hooks (auto-format on commit)
         pre-commit-check = pre-commit-hooks.lib.${system}.run {
           src = ./.;
           hooks = {
-            nixpkgs-fmt.enable = true;
+            nixpkgs-fmt = {
+              enable = true;
+              # Auto-format Nix files
+            };
             prettier = {
               enable = true;
               types_or = [ "html" "javascript" "ts" "tsx" "jsx" "json" "css" "markdown" ];
+              # Auto-format these files
             };
           };
         };
@@ -110,9 +114,13 @@
                   exit 1
                 fi
             
-                # Format check
+                # Format check - should block push if not formatted
+                # (pre-commit should have auto-formatted, so this catches bypasses)
                 if ! nix fmt -- --check 2>/dev/null; then
-                  echo "⚠️  Files may need formatting - run 'nix fmt' to format"
+                  echo "❌ Files are not formatted correctly!"
+                  echo "   This should have been auto-formatted by pre-commit."
+                  echo "   Run 'nix fmt' to format, then commit the changes."
+                  exit 1
                 fi
             
                 # Push to Cachix if configured
