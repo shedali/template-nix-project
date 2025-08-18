@@ -10,6 +10,6 @@ jobs:
       with:
         name: shedali
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-    - run: nix fmt -- --check
+    - run: nix fmt --accept-flake-config -- --check
     - run: nix build
     - run: nix flake check
